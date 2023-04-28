@@ -2,6 +2,11 @@ package org.bitkernel;
 
 import org.springframework.util.StopWatch;
 
+import javax.xml.bind.DatatypeConverter;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+
 public class TaskExecutor {
     public static long myPow(long x, int n) {
         long N = n;
@@ -26,7 +31,28 @@ public class TaskExecutor {
         return ans;
     }
 
+    public static String SHA256(String data) throws NoSuchAlgorithmException {
+        MessageDigest md = MessageDigest.getInstance("SHA-256");
+        byte[] digest = md.digest(data.getBytes(StandardCharsets.UTF_8));
+        return DatatypeConverter.printHexBinary(digest).toLowerCase();
+    }
+
     public static void main(String[] args) {
+
+    }
+
+    public void testSHA256() throws NoSuchAlgorithmException {
+        String password = "SHA-256";
+        StopWatch stop = new StopWatch();
+        stop.start();
+        for (int i = 0; i < 10000000; i++) {
+            String v = SHA256(password);
+        }
+        stop.stop();
+        System.out.println(stop.getTotalTimeMillis());
+    }
+
+    public void testPow() {
         StopWatch stop = new StopWatch();
         stop.start();
         for (int i = 0; i < 100000000; i++) {
