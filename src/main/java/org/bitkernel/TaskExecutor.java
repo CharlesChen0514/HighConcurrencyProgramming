@@ -2,13 +2,17 @@ package org.bitkernel;
 
 import com.sun.istack.internal.NotNull;
 import lombok.Getter;
+import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.util.StopWatch;
 
 import javax.xml.bind.DatatypeConverter;
+import java.net.ServerSocket;
+import java.net.Socket;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.Scanner;
 
 @Slf4j
 public class TaskExecutor {
@@ -18,6 +22,10 @@ public class TaskExecutor {
     private TcpConn generatorConn;
     private TcpConn collectorConn;
     private Udp udp;
+    @Setter
+    private String monitorIp;
+    @Setter
+    private String collectorIp;
 
     static {
         try {
@@ -28,7 +36,28 @@ public class TaskExecutor {
     }
 
     public static void main(String[] args) {
-        testPow();
+        TaskExecutor taskExecutor = new TaskExecutor();
+        Scanner sc = new Scanner(System.in);
+        System.out.print("Please input the monitor ip: ");
+        taskExecutor.setMonitorIp(sc.next());
+        System.out.print("Please input the collector ip: ");
+        taskExecutor.setCollectorIp(sc.next());
+        taskExecutor.init();
+    }
+
+    private void init() {
+        logger.debug("Initialize the task executor");
+        try (ServerSocket server = new ServerSocket(TCP_PORT)) {
+            collectorConn = new TcpConn(collectorIp, TaskResultCollector.getTCP_PORT());
+            logger.debug("Successfully connected with the collector");
+            logger.debug("Waiting for generator to connect");
+            Socket accept = server.accept();
+            generatorConn = new TcpConn(accept);
+            logger.debug("Successfully connected with the generator");
+        } catch (Exception e) {
+            logger.error("Cannot connect to the collector");
+        }
+        logger.debug("Initialize the task executor done");
     }
 
     @NotNull
