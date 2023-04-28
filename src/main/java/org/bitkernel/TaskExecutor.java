@@ -1,5 +1,8 @@
 package org.bitkernel;
 
+import com.sun.istack.internal.NotNull;
+import lombok.Getter;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.util.StopWatch;
 
 import javax.xml.bind.DatatypeConverter;
@@ -7,8 +10,38 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 
+@Slf4j
 public class TaskExecutor {
-    public static long myPow(long x, int n) {
+    @Getter
+    private static final int TCP_PORT = 25522;
+    private static MessageDigest md;
+    private TcpConn generatorConn;
+    private TcpConn collectorConn;
+    private Udp udp;
+
+    static {
+        try {
+            md = MessageDigest.getInstance("SHA-256");
+        } catch (NoSuchAlgorithmException e) {
+            logger.error(e.getMessage());
+        }
+    }
+
+    public static void main(String[] args) {
+        testPow();
+    }
+
+    @NotNull
+    public static String executeTask(int x, int y) {
+        long pow = myPow(x, y);
+        String res = String.valueOf(pow);
+        for (int i = 0; i < 10; i++) {
+            res = SHA256(res);
+        }
+        return res;
+    }
+
+    public static long myPow(int x, int n) {
         long N = n;
         return N >= 0 ? quickMul(x, N) : 1L / quickMul(x, -N);
     }
@@ -31,17 +64,13 @@ public class TaskExecutor {
         return ans;
     }
 
-    public static String SHA256(String data) throws NoSuchAlgorithmException {
-        MessageDigest md = MessageDigest.getInstance("SHA-256");
+    @NotNull
+    public static String SHA256(@NotNull String data) {
         byte[] digest = md.digest(data.getBytes(StandardCharsets.UTF_8));
         return DatatypeConverter.printHexBinary(digest).toLowerCase();
     }
 
-    public static void main(String[] args) {
-
-    }
-
-    public void testSHA256() throws NoSuchAlgorithmException {
+    public static void testSHA256() throws NoSuchAlgorithmException {
         String password = "SHA-256";
         StopWatch stop = new StopWatch();
         stop.start();
@@ -52,7 +81,7 @@ public class TaskExecutor {
         System.out.println(stop.getTotalTimeMillis());
     }
 
-    public void testPow() {
+    public static void testPow() {
         StopWatch stop = new StopWatch();
         stop.start();
         for (int i = 0; i < 100000000; i++) {

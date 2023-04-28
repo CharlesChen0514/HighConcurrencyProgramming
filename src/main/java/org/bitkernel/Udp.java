@@ -16,6 +16,14 @@ public class Udp {
     private int port;
     private DatagramSocket socket;
 
+    public Udp() {
+        try {
+            socket = new DatagramSocket();
+        } catch (SocketException e) {
+            System.exit(-1);
+        }
+    }
+
     public Udp(int port) {
         try {
             this.port = port;
