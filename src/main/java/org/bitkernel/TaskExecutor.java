@@ -1,18 +1,21 @@
 package org.bitkernel;
 
 import com.sun.istack.internal.NotNull;
+import lombok.AllArgsConstructor;
 import lombok.Getter;
-import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.util.StopWatch;
 
 import javax.xml.bind.DatatypeConverter;
+import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Scanner;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 @Slf4j
 public class TaskExecutor {
@@ -21,11 +24,11 @@ public class TaskExecutor {
     private static MessageDigest md;
     private TcpConn generatorConn;
     private TcpConn collectorConn;
-    private Udp udp;
-    @Setter
-    private String monitorIp;
-    @Setter
-    private String collectorIp;
+    private final Udp udp;
+    private final String monitorIp;
+    private final String collectorIp;
+    private long taskNum;
+    public ExecutorService threadPool;
 
     static {
         try {
@@ -36,19 +39,25 @@ public class TaskExecutor {
     }
 
     public static void main(String[] args) {
-        TaskExecutor taskExecutor = new TaskExecutor();
         Scanner sc = new Scanner(System.in);
         System.out.print("Please input the monitor ip: ");
-        taskExecutor.setMonitorIp(sc.next());
+        String monitorIp = sc.next();
         System.out.print("Please input the collector ip: ");
-        taskExecutor.setCollectorIp(sc.next());
-        taskExecutor.init();
+        String collectorIp = sc.next();
+        TaskExecutor taskExecutor = new TaskExecutor(monitorIp, collectorIp);
+        taskExecutor.start();
     }
 
-    private void init() {
+    private TaskExecutor(@NotNull String monitorIp,
+                         @NotNull String collectorIp) {
         logger.debug("Initialize the task executor");
+        this.monitorIp = monitorIp;
+        this.collectorIp = collectorIp;
+        taskNum = 0;
+        udp = new Udp();
+        threadPool = Executors.newFixedThreadPool(10);
         try (ServerSocket server = new ServerSocket(TCP_PORT)) {
-            collectorConn = new TcpConn(collectorIp, TaskResultCollector.getTCP_PORT());
+//            collectorConn = new TcpConn(collectorIp, TaskResultCollector.getTCP_PORT());
             logger.debug("Successfully connected with the collector");
             logger.debug("Waiting for generator to connect");
             Socket accept = server.accept();
@@ -58,6 +67,22 @@ public class TaskExecutor {
             logger.error("Cannot connect to the collector");
         }
         logger.debug("Initialize the task executor done");
+    }
+
+    private void start() {
+        logger.debug("Start task executor");
+        while (true) {
+            try {
+                String task = generatorConn.getDin().readUTF();
+                String[] split = task.split(" ");
+                int x = Integer.parseInt(split[0]);
+                int y = Integer.parseInt(split[1]);
+                threadPool.submit(new Task(x, y));
+                taskNum += 1;
+            } catch (IOException e) {
+                logger.error(e.getMessage());
+            }
+        }
     }
 
     @NotNull
@@ -118,5 +143,17 @@ public class TaskExecutor {
         }
         stop.stop();
         System.out.println(stop.getTotalTimeMillis());
+    }
+
+    @AllArgsConstructor
+    class Task implements Runnable {
+        private int x;
+        private int y;
+
+        @Override
+        public void run() {
+            String res = executeTask(x, y);
+            // 结果给 collector
+        }
     }
 }
