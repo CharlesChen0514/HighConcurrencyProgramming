@@ -40,17 +40,19 @@ public class Monitor {
 
     public static String getTime() {
         SimpleDateFormat sdf = new SimpleDateFormat();
-        sdf.applyPattern("HH:mm:ss");
+        sdf.applyPattern("HH-mm-ss");
         Date date = new Date();
         return sdf.format(date);
     }
 
     private void start() {
+        logger.debug("Start monitor server");
         while (true) {
             // 0 -> generator, 1 -> executor, 2 -> collector
             // e.g. 0@2@msg, representing the message sent by
             // generator in the second minute.
             String pktString = udp.receiveString();
+            logger.debug("Receive packet: {}", pktString);
             record(pktString);
         }
     }
@@ -87,12 +89,12 @@ public class Monitor {
         long newTaskNum = Long.parseLong(msg);
 
         StringBuilder sb = new StringBuilder();
-        sb.append(String.format("---------- %s minute ----------", time));
+        sb.append(String.format("---------- %s minute ----------%n", time));
         sb.append(String.format("New task number: %d%n", newTaskNum));
-        sb.append(String.format("Current minute tps: %.2f%n", tps(newTaskNum)));
+        sb.append(String.format("Current TPS: %.2f%n", tps(newTaskNum)));
         generatorTaskNum += newTaskNum;
         sb.append(String.format("Total task number: %d%n", generatorTaskNum));
-        sb.append(String.format("Average tps: %.2f%n", tps(generatorTaskNum, time)));
+        sb.append(String.format("Average TPS: %.2f%n", tps(generatorTaskNum, time)));
         sb.append(System.lineSeparator());
 
         String path = recordDir + "generator";
@@ -104,12 +106,12 @@ public class Monitor {
         long newTaskNum = Long.parseLong(msg);
 
         StringBuilder sb = new StringBuilder();
-        sb.append(String.format("---------- %s minute ----------", time));
+        sb.append(String.format("---------- %s minute ----------%n", time));
         sb.append(String.format("New task number: %d%n", newTaskNum));
-        sb.append(String.format("Current minute tps: %.2f%n", tps(newTaskNum)));
+        sb.append(String.format("Current TPS: %.2f%n", tps(newTaskNum)));
         executorTaskNum += newTaskNum;
         sb.append(String.format("Total task number: %d%n", executorTaskNum));
-        sb.append(String.format("Average tps: %.2f%n", tps(executorTaskNum, time)));
+        sb.append(String.format("Average TPS: %.2f%n", tps(executorTaskNum, time)));
         sb.append(System.lineSeparator());
 
         String path = recordDir + "executor";
@@ -124,11 +126,11 @@ public class Monitor {
         int incorrect = Integer.parseInt(split[2]);
 
         StringBuilder sb = new StringBuilder();
-        sb.append(String.format("---------- %s minute ----------", time));
+        sb.append(String.format("---------- %s minute ----------%n", time));
         sb.append(String.format("New task number: %d%n", newTaskNum));
         sb.append(String.format("Correct task number: %d%n", correct));
         sb.append(String.format("Incorrect task number: %d%n", incorrect));
-        sb.append(String.format("Current minute tps: %.2f%n", tps(newTaskNum)));
+        sb.append(String.format("Current TPS: %.2f%n", tps(newTaskNum)));
         collectorTaskNum += newTaskNum;
         correctTaskNum += correct;
         incorrectTaskNum += incorrect;
