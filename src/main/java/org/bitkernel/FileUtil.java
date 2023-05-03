@@ -3,6 +3,7 @@ package org.bitkernel;
 import com.sun.istack.internal.NotNull;
 import lombok.extern.slf4j.Slf4j;
 
+import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
@@ -60,5 +61,20 @@ public class FileUtil {
         } catch (IOException e) {
             logger.error("Failed to write content to {}", filePath);
         }
+    }
+
+    public static void appendToFile(@NotNull String filePath, @NotNull String content) {
+        try {
+            File file = new File(filePath);
+            if (!file.exists()) {
+                file.createNewFile();
+            }
+            BufferedWriter writer = new BufferedWriter(new FileWriter(file));
+            writer.write(content);
+            writer.close();
+        } catch (IOException e) {
+            logger.error(e.getMessage());
+        }
+
     }
 }
