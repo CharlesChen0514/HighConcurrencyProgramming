@@ -61,7 +61,7 @@ public class TaskResultCollector {
         }
         Map<String, Boolean> resMap = sampleVerification(sampleSet);
         int[] arr = recordSampleRes(resMap);
-        String monitorData = "3:" + taskNum + ":" + arr[0] + ":" + arr[1];
+        String monitorData = "2:" + taskNum + ":" + arr[0] + ":" + arr[1];
         udp.send(monitorIp, Monitor.getUDP_PORT(), monitorData);
     }
 

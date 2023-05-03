@@ -16,6 +16,8 @@ import java.security.NoSuchAlgorithmException;
 import java.util.Scanner;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 @Slf4j
 public class TaskExecutor {
@@ -27,8 +29,11 @@ public class TaskExecutor {
     private final Udp udp;
     private final String monitorIp;
     private final String collectorIp;
-    private long taskNum;
+    private long completedTaskNum;
+    private long submitTaskNum;
     public ExecutorService threadPool;
+    private final ScheduledExecutorService telemetry = Executors.newSingleThreadScheduledExecutor();
+    private int minutes;
 
     static {
         try {
@@ -53,9 +58,12 @@ public class TaskExecutor {
         logger.debug("Initialize the task executor");
         this.monitorIp = monitorIp;
         this.collectorIp = collectorIp;
-        taskNum = 0;
+        completedTaskNum = 0;
+        submitTaskNum = 0;
+        minutes = 0;
         udp = new Udp();
         threadPool = Executors.newFixedThreadPool(10);
+        telemetry.scheduleAtFixedRate(this::reportToMonitor, 0, 1, TimeUnit.MINUTES);
         try (ServerSocket server = new ServerSocket(TCP_PORT)) {
 //            collectorConn = new TcpConn(collectorIp, TaskResultCollector.getTCP_PORT());
             logger.debug("Successfully connected with the collector");
@@ -69,6 +77,12 @@ public class TaskExecutor {
         logger.debug("Initialize the task executor done");
     }
 
+    private void reportToMonitor() {
+        minutes += 1;
+        String message = String.format("%d@%d@%d %d", 1, minutes, submitTaskNum, completedTaskNum);
+        udp.send(monitorIp, Monitor.getUDP_PORT(), message);
+    }
+
     private void start() {
         logger.debug("Start task executor");
         while (true) {
@@ -78,7 +92,7 @@ public class TaskExecutor {
                 int x = Integer.parseInt(split[0]);
                 int y = Integer.parseInt(split[1]);
                 threadPool.submit(new Task(x, y));
-                taskNum += 1;
+                submitTaskNum += 1;
             } catch (IOException e) {
                 logger.error(e.getMessage());
             }
@@ -154,6 +168,7 @@ public class TaskExecutor {
         public void run() {
             String res = executeTask(x, y);
             // 结果给 collector
+            completedTaskNum += 1;
         }
     }
 }
