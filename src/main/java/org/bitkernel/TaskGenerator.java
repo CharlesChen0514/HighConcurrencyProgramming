@@ -1,13 +1,15 @@
 package org.bitkernel;
 
 import com.sun.istack.internal.NotNull;
-import lombok.Getter;
-import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.util.StopWatch;
 
+import java.io.IOException;
 import java.util.Scanner;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.TimeUnit;
 
 @Slf4j
 public class TaskGenerator {
@@ -25,6 +27,7 @@ public class TaskGenerator {
     private TcpConn executorConn;
     private final StopWatch stopWatch;
     private int minutes;
+    private final ScheduledExecutorService scheduled = Executors.newSingleThreadScheduledExecutor();
 
     public static void main(String[] args) {
         Scanner sc = new Scanner(System.in);
@@ -51,44 +54,44 @@ public class TaskGenerator {
         try {
             executorConn = new TcpConn(executorIp, TaskExecutor.getTCP_PORT());
         } catch (Exception e) {
-            logger.error("Cannot connect to the executor");
+            logger.error("Cannot connect to the executor, please start executor server first");
+            System.exit(-1);
         }
         logger.debug("Initialize the task generator done");
     }
 
     public void start() {
         logger.debug("Start task generator");
-        while (true) {
-            minutes += 1;
-            logger.debug("Start generating tasks for the {} minute", minutes);
-            long round = 60 * 1000;
-            stopWatch.start(String.valueOf(minutes));
-            generateTask();
-            stopWatch.stop();
-            long taskGenerateTime = stopWatch.getLastTaskTimeMillis();
-            logger.debug("Success generating tasks for the {} minute, consuming {} ms",
-                    minutes, taskGenerateTime);
-            round -= taskGenerateTime;
-            logger.debug("Program goes to sleep: {} ms", round);
-            try {
-                Thread.sleep(round);
-            } catch (InterruptedException e) {
-                logger.error(e.getMessage());
-            }
-            logger.debug("Program wake up");
-            String monitorData = String.format("%d@%d@%s", 0, minutes, targetTpm);
-            udp.send(monitorIp, Monitor.getUDP_PORT(), monitorData);
-        }
+        scheduled.scheduleAtFixedRate(this::scheduledJob, 0, 1, TimeUnit.MINUTES);
+    }
+
+    private void scheduledJob() {
+        telemetry();
+        minutes += 1;
+        generateTask();
+    }
+
+    private void telemetry() {
+        String monitorData = String.format("%d@%d@%s", 0, minutes, taskNum);
+        udp.send(monitorIp, Monitor.getUDP_PORT(), monitorData);
+        taskNum = 0;
     }
 
     private void generateTask() {
+        stopWatch.start(String.valueOf(minutes));
         long c = 0;
         while (c < targetTpm) {
             c++;
             int x = random.nextInt(RANGE);
             int y = random.nextInt(RANGE);
-            // 传输给 executor
+            try {
+                executorConn.getDout().writeUTF(x + " " + y);
+            } catch (IOException e) {
+                logger.error(e.getMessage());
+            }
         }
         taskNum += targetTpm;
+        stopWatch.stop();
+        logger.debug("Generate the {}th minute task takes {} ms", minutes, stopWatch.getLastTaskTimeMillis());
     }
 }

@@ -29,8 +29,7 @@ public class TaskExecutor {
     private final Udp udp;
     private final String monitorIp;
     private final String collectorIp;
-    private long completedTaskNum;
-    private long submitTaskNum;
+    private volatile long completedTaskNum;
     public ExecutorService threadPool;
     private final ScheduledExecutorService telemetry = Executors.newSingleThreadScheduledExecutor();
     private int minutes;
@@ -59,11 +58,9 @@ public class TaskExecutor {
         this.monitorIp = monitorIp;
         this.collectorIp = collectorIp;
         completedTaskNum = 0;
-        submitTaskNum = 0;
         minutes = 0;
         udp = new Udp();
         threadPool = Executors.newFixedThreadPool(10);
-        telemetry.scheduleAtFixedRate(this::reportToMonitor, 0, 1, TimeUnit.MINUTES);
         try (ServerSocket server = new ServerSocket(TCP_PORT)) {
 //            collectorConn = new TcpConn(collectorIp, TaskResultCollector.getTCP_PORT());
             logger.debug("Successfully connected with the collector");
@@ -72,19 +69,26 @@ public class TaskExecutor {
             generatorConn = new TcpConn(accept);
             logger.debug("Successfully connected with the generator");
         } catch (Exception e) {
-            logger.error("Cannot connect to the collector");
+            logger.error("Cannot connect to the collector, please start collector server first");
+            System.exit(-1);
         }
         logger.debug("Initialize the task executor done");
     }
 
+    private synchronized void incrementCompletedTaskNum() {
+        completedTaskNum += 1;
+    }
+
     private void reportToMonitor() {
-        minutes += 1;
-        String message = String.format("%d@%d@%d %d", 1, minutes, submitTaskNum, completedTaskNum);
+        String message = String.format("%d@%d@%d", 1, minutes, completedTaskNum);
         udp.send(monitorIp, Monitor.getUDP_PORT(), message);
+        minutes += 1;
+        completedTaskNum = 0;
     }
 
     private void start() {
-        logger.debug("Start task executor");
+        logger.debug("Start task executor service");
+        telemetry.scheduleAtFixedRate(this::reportToMonitor, 0, 1, TimeUnit.MINUTES);
         while (true) {
             try {
                 String task = generatorConn.getDin().readUTF();
@@ -92,7 +96,6 @@ public class TaskExecutor {
                 int x = Integer.parseInt(split[0]);
                 int y = Integer.parseInt(split[1]);
                 threadPool.submit(new Task(x, y));
-                submitTaskNum += 1;
             } catch (IOException e) {
                 logger.error(e.getMessage());
             }
@@ -168,7 +171,8 @@ public class TaskExecutor {
         public void run() {
             String res = executeTask(x, y);
             // 结果给 collector
-            completedTaskNum += 1;
+            incrementCompletedTaskNum();
+//            logger.debug(res);
         }
     }
 }

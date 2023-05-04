@@ -3,10 +3,7 @@ package org.bitkernel;
 import com.sun.istack.internal.NotNull;
 import lombok.extern.slf4j.Slf4j;
 
-import java.io.BufferedWriter;
-import java.io.File;
-import java.io.FileWriter;
-import java.io.IOException;
+import java.io.*;
 
 @Slf4j
 public class FileUtil {
@@ -66,10 +63,13 @@ public class FileUtil {
     public static void appendToFile(@NotNull String filePath, @NotNull String content) {
         try {
             File file = new File(filePath);
+            BufferedWriter writer;
             if (!file.exists()) {
                 file.createNewFile();
+                writer = new BufferedWriter(new FileWriter(file));
+            } else {
+                writer = new BufferedWriter(new FileWriter(file, true));
             }
-            BufferedWriter writer = new BufferedWriter(new FileWriter(file));
             writer.write(content);
             writer.close();
         } catch (IOException e) {

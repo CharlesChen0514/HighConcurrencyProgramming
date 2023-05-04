@@ -76,6 +76,9 @@ public class Monitor {
 
     private double tps(long taskNum, String time) {
         int t = Integer.parseInt(time);
+        if (t == 0) {
+            return  0D;
+        }
         return (taskNum * 1.0) / (t * 60);
     }
 
