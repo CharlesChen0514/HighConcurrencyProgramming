@@ -51,7 +51,9 @@ public class TaskExecutor {
         completedTaskNum = 0;
         minutes = 0;
         udp = new Udp();
-        threadPool = Executors.newFixedThreadPool(10);
+        int processors = Runtime.getRuntime().availableProcessors();
+        threadPool = Executors.newFixedThreadPool(processors);
+        logger.debug("The maximum number of threads is set to {}", processors);
         try (ServerSocket server = new ServerSocket(TCP_PORT)) {
             logger.debug("Waiting for generator to connect");
             Socket accept = server.accept();
