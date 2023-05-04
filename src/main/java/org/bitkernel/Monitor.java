@@ -146,6 +146,6 @@ public class Monitor {
     }
 
     private double getAccuracy() {
-        return (correctTaskNum * 1.0) / (correctTaskNum + incorrectTaskNum);
+        return correctTaskNum == 0 ? 0: (correctTaskNum * 100.0) / (correctTaskNum + incorrectTaskNum);
     }
 }

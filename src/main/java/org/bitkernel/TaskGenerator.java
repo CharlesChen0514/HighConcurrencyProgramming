@@ -27,7 +27,7 @@ public class TaskGenerator {
     private TcpConn executorConn;
     private final StopWatch stopWatch;
     private int minutes;
-    private final ScheduledExecutorService scheduled = Executors.newSingleThreadScheduledExecutor();
+    private final ScheduledExecutorService scheduledService = Executors.newSingleThreadScheduledExecutor();
 
     public static void main(String[] args) {
         Scanner sc = new Scanner(System.in);
@@ -62,10 +62,10 @@ public class TaskGenerator {
 
     public void start() {
         logger.debug("Start task generator");
-        scheduled.scheduleAtFixedRate(this::scheduledJob, 0, 1, TimeUnit.MINUTES);
+        scheduledService.scheduleAtFixedRate(this::scheduled, 0, 1, TimeUnit.MINUTES);
     }
 
-    private void scheduledJob() {
+    private void scheduled() {
         telemetry();
         minutes += 1;
         generateTask();

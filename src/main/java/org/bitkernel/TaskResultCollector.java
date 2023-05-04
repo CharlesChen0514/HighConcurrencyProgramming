@@ -16,76 +16,102 @@ import java.util.concurrent.*;
 public class TaskResultCollector {
     @Getter
     private final static int TCP_PORT = 25523;
+    @Getter
     private final static int SAMPLE_NUM = 100;
     private final static ThreadLocalRandom random = ThreadLocalRandom.current();
-    private final static String RECORD_DIR = System.getProperty("user.dir") + File.separator + "sample" + File.separator;
-    private TcpConn executorConn;
-    private Udp udp;
+    private final String RECORD_DIR;
+    private final TcpConn executorConn;
+    private final Udp udp;
     @Setter
     private String monitorIp;
     private final ConcurrentLinkedQueue<String> queue = new ConcurrentLinkedQueue<>();
-    private final ScheduledExecutorService sampleExecutor = Executors.newSingleThreadScheduledExecutor();
-    private int sampleTimes = 0;
+    private final ScheduledExecutorService scheduled = Executors.newSingleThreadScheduledExecutor();
+    private int minutes = 0;
 
     public static void main(String[] args) {
-        TaskResultCollector collector = new TaskResultCollector();
         Scanner sc = new Scanner(System.in);
         System.out.print("Please input the monitor ip: ");
-        collector.setMonitorIp(sc.next());
-        collector.init();
+        String monitorIp = sc.next();
+        TaskResultCollector collector = new TaskResultCollector(monitorIp);
         collector.start();
     }
 
-    private void init() {
+    private TaskResultCollector(@NotNull String monitorIp) {
+        this.monitorIp = monitorIp;
         udp = new Udp();
+        RECORD_DIR = System.getProperty("user.dir") + File.separator + "sample" + File.separator
+                + Monitor.getTime() + File.separator;
         try (ServerSocket server = new ServerSocket(TCP_PORT)) {
             logger.debug("Waiting for executor to connect");
             Socket accept = server.accept();
             executorConn = new TcpConn(accept);
             logger.debug("Successfully connected with the executor");
-            sampleExecutor.scheduleAtFixedRate(this::sample, 0, 1, TimeUnit.MINUTES);
-            FileUtil.createFolder(RECORD_DIR);
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
     }
 
-    private void sample() {
-        Set<Object> sampleSet = new HashSet<>();
+    private void scheduled() {
+        logger.debug("Execute scheduled jobs");
         Object[] array = queue.toArray();
+        if (array.length == 0) {
+            telemetry(0, 0, 0);
+        } else {
+            queue.clear();
+            Set<Object> samples = sample(array);
+            Map<String, Boolean> resMap = sampleVerification(samples);
+            int rightCount = rightSampleNum(resMap);
+            recordSampleRes(resMap, rightCount);
+            telemetry(array.length, rightCount, SAMPLE_NUM - rightCount);
+        }
+        minutes += 1;
+        logger.debug("Execute scheduled jobs down");
+    }
+
+    private Set<Object> sample(@NotNull Object[] array) {
+        Set<Object> sampleSet = new HashSet<>();
         int taskNum = array.length;
-        queue.clear();
         while (sampleSet.size() < SAMPLE_NUM) {
             int idx = random.nextInt(taskNum);
             sampleSet.add(array[idx]);
         }
-        Map<String, Boolean> resMap = sampleVerification(sampleSet);
-        int[] arr = recordSampleRes(resMap);
-        String monitorData = "2:" + taskNum + ":" + arr[0] + ":" + arr[1];
-        udp.send(monitorIp, Monitor.getUDP_PORT(), monitorData);
+        return sampleSet;
     }
 
-    private int[] recordSampleRes(@NotNull Map<String, Boolean> resMap) {
-        StringBuilder rightSb = new StringBuilder();
-        StringBuilder errorSb = new StringBuilder();
+    private int rightSampleNum(@NotNull Map<String, Boolean> resMap) {
         int rightCount = 0;
         for (Map.Entry<String, Boolean> entry : resMap.entrySet()) {
             if (entry.getValue()) {
                 rightCount++;
+            }
+        }
+        return rightCount;
+    }
+
+    private void telemetry(int taskNum, int rightCount, int errorCount) {
+        String monitorData = String.format("%d@%d@%d %d %d", 2, minutes, taskNum, rightCount, errorCount);
+        logger.debug(String.format("The %dth minute, task number %d, correct sample number %d, error sample number %d",
+                minutes, taskNum, rightCount, errorCount));
+        udp.send(monitorIp, Monitor.getUDP_PORT(), monitorData);
+    }
+
+    private void recordSampleRes(@NotNull Map<String, Boolean> resMap, int rightCount) {
+        StringBuilder rightSb = new StringBuilder();
+        StringBuilder errorSb = new StringBuilder();
+        for (Map.Entry<String, Boolean> entry : resMap.entrySet()) {
+            if (entry.getValue()) {
                 rightSb.append(entry.getKey()).append(System.lineSeparator());
             } else {
                 errorSb.append(entry.getKey()).append(System.lineSeparator());
             }
         }
 
-        String path = RECORD_DIR + sampleTimes;
-        sampleTimes++;
+        String path = RECORD_DIR + minutes;
         String content = String.format("Total of %d tasks calculated correctly.%n", rightCount);
-        content += rightSb.toString();
+        content += rightSb + System.lineSeparator();
         content += String.format("Total of %d tasks calculated error.%n", SAMPLE_NUM - rightCount);
         content += errorSb.toString();
         FileUtil.write(path, content);
-        return new int[]{rightCount, SAMPLE_NUM - rightCount};
     }
 
     @NotNull
@@ -93,11 +119,11 @@ public class TaskResultCollector {
         Map<String, Boolean> resMap = new HashMap<>();
         for (Object taskObj : sampleSet) {
             String taskString = (String) taskObj;
-            String[] split = taskString.split(":");
-            int x = Integer.parseInt(split[1]);
-            int y = Integer.parseInt(split[2]);
+            String[] split = taskString.split(" ");
+            int x = Integer.parseInt(split[0]);
+            int y = Integer.parseInt(split[1]);
             String res = TaskExecutor.executeTask(x, y);
-            if (res.equals(split[3])) {
+            if (res.equals(split[2])) {
                 resMap.put(taskString, true);
             } else {
                 resMap.put(taskString, false);
@@ -107,10 +133,15 @@ public class TaskResultCollector {
     }
 
     private void start() {
+        FileUtil.createFolder(RECORD_DIR);
+        scheduled.scheduleAtFixedRate(this::scheduled, 0, 1, TimeUnit.MINUTES);
         while (true) {
             try {
-                String taskRes = executorConn.getDin().readUTF();
-                queue.offer(taskRes);
+                String taskRes = executorConn.getDin().readLine();
+                if (taskRes != null) {
+                    queue.offer(taskRes);
+//                    logger.error(taskRes);
+                }
             } catch (IOException e) {
                 logger.error(e.getMessage());
             }

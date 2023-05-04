@@ -62,12 +62,12 @@ public class TaskExecutor {
         udp = new Udp();
         threadPool = Executors.newFixedThreadPool(10);
         try (ServerSocket server = new ServerSocket(TCP_PORT)) {
-//            collectorConn = new TcpConn(collectorIp, TaskResultCollector.getTCP_PORT());
-            logger.debug("Successfully connected with the collector");
             logger.debug("Waiting for generator to connect");
             Socket accept = server.accept();
             generatorConn = new TcpConn(accept);
             logger.debug("Successfully connected with the generator");
+            collectorConn = new TcpConn(collectorIp, TaskResultCollector.getTCP_PORT());
+            logger.debug("Successfully connected with the collector");
         } catch (Exception e) {
             logger.error("Cannot connect to the collector, please start collector server first");
             System.exit(-1);
@@ -170,9 +170,13 @@ public class TaskExecutor {
         @Override
         public void run() {
             String res = executeTask(x, y);
-            // 结果给 collector
+            try {
+                String pktString = String.format("%d %d %s%n", x, y, res);
+                collectorConn.getDout().write(pktString.getBytes());
+            } catch (IOException e) {
+                logger.error(e.getMessage());
+            }
             incrementCompletedTaskNum();
-//            logger.debug(res);
         }
     }
 }
