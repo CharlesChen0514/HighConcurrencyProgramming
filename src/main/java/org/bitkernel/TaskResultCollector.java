@@ -53,11 +53,14 @@ public class TaskResultCollector {
 
     private void scheduled() {
         logger.debug("Execute scheduled jobs");
-        Object[] array = queue.toArray();
+        Object[] array;
+        synchronized (queue) {
+            array = queue.toArray();
+            queue.clear();
+        }
         if (array.length == 0) {
             telemetry(0, 0, 0);
         } else {
-            queue.clear();
             Set<Object> samples = sample(array);
             Map<String, Boolean> resMap = sampleVerification(samples);
             int rightCount = rightSampleNum(resMap);
@@ -108,7 +111,7 @@ public class TaskResultCollector {
 
         String path = RECORD_DIR + minutes;
         String content = String.format("Total of %d tasks calculated correctly, accuracy %.2f%% %n",
-                rightCount, rightCount * 1.0 / SAMPLE_NUM);
+                rightCount, rightCount * 100.0 / SAMPLE_NUM);
         content += rightSb + System.lineSeparator();
         content += String.format("Total of %d tasks calculated error.%n", SAMPLE_NUM - rightCount);
         content += errorSb.toString();
@@ -141,7 +144,6 @@ public class TaskResultCollector {
                 String taskRes = executorConn.getDin().readLine();
                 if (taskRes != null) {
                     queue.offer(taskRes);
-//                    logger.error(taskRes);
                 }
             } catch (IOException e) {
                 logger.error(e.getMessage());

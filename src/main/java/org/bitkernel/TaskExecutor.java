@@ -72,9 +72,9 @@ public class TaskExecutor {
 
     private void reportToMonitor() {
         String message = String.format("%d@%d@%d", 1, minutes, completedTaskNum);
+        completedTaskNum = 0;
         udp.send(monitorIp, Monitor.getUDP_PORT(), message);
         minutes += 1;
-        completedTaskNum = 0;
     }
 
     private void start() {
