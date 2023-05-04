@@ -107,7 +107,8 @@ public class TaskResultCollector {
         }
 
         String path = RECORD_DIR + minutes;
-        String content = String.format("Total of %d tasks calculated correctly.%n", rightCount);
+        String content = String.format("Total of %d tasks calculated correctly, accuracy %.2f%% %n",
+                rightCount, rightCount * 1.0 / SAMPLE_NUM);
         content += rightSb + System.lineSeparator();
         content += String.format("Total of %d tasks calculated error.%n", SAMPLE_NUM - rightCount);
         content += errorSb.toString();
@@ -120,8 +121,8 @@ public class TaskResultCollector {
         for (Object taskObj : sampleSet) {
             String taskString = (String) taskObj;
             String[] split = taskString.split(" ");
-            int x = Integer.parseInt(split[0]);
-            int y = Integer.parseInt(split[1]);
+            int x = Integer.parseInt(split[0].trim());
+            int y = Integer.parseInt(split[1].trim());
             String res = TaskExecutor.executeTask(x, y);
             if (res.equals(split[2])) {
                 resMap.put(taskString, true);

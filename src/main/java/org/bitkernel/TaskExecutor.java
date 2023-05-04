@@ -23,7 +23,6 @@ import java.util.concurrent.TimeUnit;
 public class TaskExecutor {
     @Getter
     private static final int TCP_PORT = 25522;
-    private static MessageDigest md;
     private TcpConn generatorConn;
     private TcpConn collectorConn;
     private final Udp udp;
@@ -33,14 +32,6 @@ public class TaskExecutor {
     public ExecutorService threadPool;
     private final ScheduledExecutorService telemetry = Executors.newSingleThreadScheduledExecutor();
     private int minutes;
-
-    static {
-        try {
-            md = MessageDigest.getInstance("SHA-256");
-        } catch (NoSuchAlgorithmException e) {
-            logger.error(e.getMessage());
-        }
-    }
 
     public static void main(String[] args) {
         Scanner sc = new Scanner(System.in);
@@ -112,7 +103,7 @@ public class TaskExecutor {
         return res;
     }
 
-    public static long myPow(int x, int n) {
+    public static long myPow(long x, long n) {
         long N = n;
         return N >= 0 ? quickMul(x, N) : 1L / quickMul(x, -N);
     }
@@ -137,6 +128,13 @@ public class TaskExecutor {
 
     @NotNull
     public static String SHA256(@NotNull String data) {
+        MessageDigest md = null;
+        try {
+            md = MessageDigest.getInstance("SHA-256");
+        } catch (NoSuchAlgorithmException e) {
+            logger.error(e.getMessage());
+        }
+        assert md != null;
         byte[] digest = md.digest(data.getBytes(StandardCharsets.UTF_8));
         return DatatypeConverter.printHexBinary(digest).toLowerCase();
     }
