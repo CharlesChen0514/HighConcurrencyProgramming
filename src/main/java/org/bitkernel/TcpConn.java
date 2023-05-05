@@ -13,15 +13,16 @@ public class TcpConn {
     @Getter
     private Socket socket;
     @Getter
-    private BufferedReader din;
+    private BufferedReader br;
     @Getter
-    private BufferedWriter dout;
+    private BufferedWriter bw;
+    private static final int BUFFER_SIZE = 8192 * 2;
 
     public TcpConn(@NotNull Socket socket) {
         this.socket = socket;
         try {
-            dout = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream()));
-            din = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+            bw = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream()), BUFFER_SIZE);
+            br = new BufferedReader(new InputStreamReader(socket.getInputStream()), BUFFER_SIZE);
         } catch (IOException e) {
             logger.error(e.getMessage());
         }
@@ -44,8 +45,8 @@ public class TcpConn {
 
     public void close() {
         try {
-            din.close();
-            dout.close();
+            br.close();
+            bw.close();
             socket.close();
         } catch (IOException e) {
             logger.error("Close resource error");

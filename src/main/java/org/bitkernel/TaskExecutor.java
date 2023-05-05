@@ -27,6 +27,7 @@ public class TaskExecutor {
     private long completedTaskNum;
     public ThreadPoolExecutor threadPool;
     private final ScheduledExecutorService telemetry = Executors.newSingleThreadScheduledExecutor();
+    private final ScheduledExecutorService flush = Executors.newSingleThreadScheduledExecutor();
     private int minutes;
 
     public static void main(String[] args) {
@@ -78,9 +79,16 @@ public class TaskExecutor {
     private void start() {
         logger.debug("Start task executor service");
         telemetry.scheduleAtFixedRate(this::reportToMonitor, 0, 1, TimeUnit.MINUTES);
+        flush.scheduleAtFixedRate(() -> {
+            try {
+                collectorConn.getBw().flush();
+            } catch (IOException e) {
+                logger.error(e.getMessage());
+            }
+        }, 0, 1, TimeUnit.SECONDS);
         for (; ; ) {
             try {
-                String task = generatorConn.getDin().readLine();
+                String task = generatorConn.getBr().readLine();
                 if (task == null) {
                     continue;
                 }
@@ -130,8 +138,7 @@ public class TaskExecutor {
             String res = executeTask(x, y);
             try {
                 String pktString = String.format("%d %d %s%n", x, y, res);
-                collectorConn.getDout().write(pktString);
-                collectorConn.getDout().flush();
+                collectorConn.getBw().write(pktString);
             } catch (IOException e) {
                 logger.error(e.getMessage());
             }

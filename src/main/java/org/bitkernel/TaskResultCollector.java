@@ -148,7 +148,7 @@ public class TaskResultCollector {
         scheduled.scheduleAtFixedRate(this::scheduled, 0, 1, TimeUnit.MINUTES);
         for (;;) {
             try {
-                String taskRes = executorConn.getDin().readLine();
+                String taskRes = executorConn.getBr().readLine();
                 if (taskRes != null) {
                     queue.offer(taskRes);
                 }
