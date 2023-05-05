@@ -1,5 +1,6 @@
 package org.bitkernel;
 
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.sun.istack.internal.NotNull;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -49,7 +50,13 @@ public class TaskExecutor {
         minutes = 0;
         udp = new Udp();
         int processors = Runtime.getRuntime().availableProcessors();
-        threadPool = (ThreadPoolExecutor) Executors.newFixedThreadPool(processors + 1);
+//        threadPool = (ThreadPoolExecutor) Executors.newFixedThreadPool(processors + 1);
+        ThreadFactory threadFactory = new ThreadFactoryBuilder()
+                .setNameFormat("cpu-intensive-thread-%d")
+                .build();
+        threadPool = new ThreadPoolExecutor(processors + 1, processors + 1, 1,
+                TimeUnit.SECONDS, new ArrayBlockingQueue<>(400 * 10000),
+                threadFactory, new ThreadPoolExecutor.DiscardPolicy());
         logger.debug("The maximum number of threads is set to {}", processors + 1);
         try (ServerSocket server = new ServerSocket(TCP_PORT)) {
             logger.debug("Waiting for generator to connect");
@@ -68,7 +75,7 @@ public class TaskExecutor {
     private void reportToMonitor() {
         long curCompletedTaskCount = threadPool.getCompletedTaskCount();
         long newTaskCount = curCompletedTaskCount - completedTaskNum;
-        String message = String.format("%d@%d@%d", 1, minutes, newTaskCount);
+        String message = String.format("%d@%d@%d %d", 1, minutes, newTaskCount, threadPool.getQueue().size());
         completedTaskNum = curCompletedTaskCount;
         udp.send(monitorIp, Monitor.getUDP_PORT(), message);
         minutes += 1;
@@ -94,8 +101,12 @@ public class TaskExecutor {
     public static String executeTask(int x, int y) {
         long pow = myPow(x, y);
         String res = String.valueOf(pow);
-        for (int i = 0; i < 10; i++) {
-            res = SHA256(res);
+        try {
+            for (int i = 0; i < 10; i++) {
+                res = SHA256(res);
+            }
+        } catch (NoSuchAlgorithmException e) {
+            logger.error(e.getMessage());
         }
         return res;
     }
@@ -124,16 +135,10 @@ public class TaskExecutor {
     }
 
     @NotNull
-    public static String SHA256(@NotNull String data) {
-        MessageDigest md = null;
-        try {
-            md = MessageDigest.getInstance("SHA-256");
-        } catch (NoSuchAlgorithmException e) {
-            logger.error(e.getMessage());
-        }
-        assert md != null;
+    public static String SHA256(@NotNull String data) throws NoSuchAlgorithmException {
+        MessageDigest md = MessageDigest.getInstance("SHA-256");
         byte[] digest = md.digest(data.getBytes(StandardCharsets.UTF_8));
-        return DatatypeConverter.printHexBinary(digest).toLowerCase();
+        return DatatypeConverter.printHexBinary(digest);
     }
 
     public static void testSHA256() throws NoSuchAlgorithmException {

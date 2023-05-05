@@ -105,7 +105,9 @@ public class Monitor {
 
     private void recordExecutorMsg(@NotNull String time,
                                    @NotNull String msg) {
-        long newTaskNum = Long.parseLong(msg);
+        String[] split = msg.split(" ");
+        long newTaskNum = Long.parseLong(split[0]);
+        int waitingQueueTaskNum = Integer.parseInt(split[1]);
 
         StringBuilder sb = new StringBuilder();
         sb.append(String.format("---------- %s minute ----------%n", time));
@@ -114,6 +116,7 @@ public class Monitor {
         executorTaskNum += newTaskNum;
         sb.append(String.format("Total task number: %d%n", executorTaskNum));
         sb.append(String.format("Average TPS: %.2f%n", tps(executorTaskNum, time)));
+        sb.append(String.format("Waiting queue task number: %d%n", waitingQueueTaskNum));
         sb.append(System.lineSeparator());
 
         String path = recordDir + "executor";
