@@ -73,7 +73,7 @@ public class FileUtil {
             writer.write(content);
             writer.close();
         } catch (IOException e) {
-            logger.error(e.getMessage());
+            logger.error("{}:{}", e.getMessage(), filePath);
         }
 
     }

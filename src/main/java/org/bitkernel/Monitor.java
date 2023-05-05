@@ -39,7 +39,7 @@ public class Monitor {
 
     public static String getTime() {
         SimpleDateFormat sdf = new SimpleDateFormat();
-        sdf.applyPattern("HH-mm-ss");
+        sdf.applyPattern("yyyy-HH-mm");
         Date date = new Date();
         return sdf.format(date);
     }

@@ -14,10 +14,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Scanner;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 
 @Slf4j
 public class TaskExecutor {
@@ -28,8 +25,8 @@ public class TaskExecutor {
     private final Udp udp;
     private final String monitorIp;
     private final String collectorIp;
-    private volatile long completedTaskNum;
-    public ExecutorService threadPool;
+    private long completedTaskNum;
+    public ThreadPoolExecutor threadPool;
     private final ScheduledExecutorService telemetry = Executors.newSingleThreadScheduledExecutor();
     private int minutes;
 
@@ -52,8 +49,8 @@ public class TaskExecutor {
         minutes = 0;
         udp = new Udp();
         int processors = Runtime.getRuntime().availableProcessors();
-        threadPool = Executors.newFixedThreadPool(processors);
-        logger.debug("The maximum number of threads is set to {}", processors);
+        threadPool = (ThreadPoolExecutor) Executors.newFixedThreadPool(processors + 1);
+        logger.debug("The maximum number of threads is set to {}", processors + 1);
         try (ServerSocket server = new ServerSocket(TCP_PORT)) {
             logger.debug("Waiting for generator to connect");
             Socket accept = server.accept();
@@ -68,13 +65,11 @@ public class TaskExecutor {
         logger.debug("Initialize the task executor done");
     }
 
-    private synchronized void incrementCompletedTaskNum() {
-        completedTaskNum += 1;
-    }
-
     private void reportToMonitor() {
-        String message = String.format("%d@%d@%d", 1, minutes, completedTaskNum);
-        completedTaskNum = 0;
+        long curCompletedTaskCount = threadPool.getCompletedTaskCount();
+        long newTaskCount = curCompletedTaskCount - completedTaskNum;
+        String message = String.format("%d@%d@%d", 1, minutes, newTaskCount);
+        completedTaskNum = curCompletedTaskCount;
         udp.send(monitorIp, Monitor.getUDP_PORT(), message);
         minutes += 1;
     }
@@ -176,7 +171,6 @@ public class TaskExecutor {
             } catch (IOException e) {
                 logger.error(e.getMessage());
             }
-            incrementCompletedTaskNum();
         }
     }
 }
