@@ -71,13 +71,20 @@ public class TaskResultCollector {
         logger.debug("Execute scheduled jobs down");
     }
 
+    @NotNull
     private Set<Object> sample(@NotNull Object[] array) {
+        logger.debug("Start sampling");
         Set<Object> sampleSet = new HashSet<>();
         int taskNum = array.length;
+        if (taskNum < SAMPLE_NUM) {
+            sampleSet.addAll(Arrays.asList(array));
+            return sampleSet;
+        }
         while (sampleSet.size() < SAMPLE_NUM) {
             int idx = random.nextInt(taskNum);
             sampleSet.add(array[idx]);
         }
+        logger.debug("Sampling done");
         return sampleSet;
     }
 
@@ -139,7 +146,7 @@ public class TaskResultCollector {
     private void start() {
         FileUtil.createFolder(RECORD_DIR);
         scheduled.scheduleAtFixedRate(this::scheduled, 0, 1, TimeUnit.MINUTES);
-        while (true) {
+        for (;;) {
             try {
                 String taskRes = executorConn.getDin().readLine();
                 if (taskRes != null) {

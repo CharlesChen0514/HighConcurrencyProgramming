@@ -85,7 +85,9 @@ public class TaskGenerator {
             int x = random.nextInt(RANGE);
             int y = random.nextInt(RANGE);
             try {
-                executorConn.getDout().writeUTF(x + " " + y);
+                String str = x + " " + y + System.lineSeparator();
+                executorConn.getDout().write(str);
+                executorConn.getDout().flush();
             } catch (IOException e) {
                 logger.error(e.getMessage());
             }

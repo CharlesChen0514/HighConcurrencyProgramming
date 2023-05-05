@@ -4,9 +4,7 @@ import com.sun.istack.internal.NotNull;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
-import java.io.IOException;
+import java.io.*;
 import java.net.InetSocketAddress;
 import java.net.Socket;
 
@@ -15,15 +13,15 @@ public class TcpConn {
     @Getter
     private Socket socket;
     @Getter
-    private DataInputStream din;
+    private BufferedReader din;
     @Getter
-    private DataOutputStream dout;
+    private BufferedWriter dout;
 
     public TcpConn(@NotNull Socket socket) {
         this.socket = socket;
         try {
-            din = new DataInputStream(socket.getInputStream());
-            dout = new DataOutputStream(socket.getOutputStream());
+            dout = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream()));
+            din = new BufferedReader(new InputStreamReader(socket.getInputStream()));
         } catch (IOException e) {
             logger.error(e.getMessage());
         }
