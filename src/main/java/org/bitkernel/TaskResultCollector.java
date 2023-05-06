@@ -11,6 +11,7 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.*;
 import java.util.concurrent.*;
+import java.util.concurrent.atomic.LongAdder;
 
 @Slf4j
 public class TaskResultCollector {
@@ -24,9 +25,11 @@ public class TaskResultCollector {
     private final Udp udp;
     @Setter
     private String monitorIp;
-    private final ConcurrentLinkedQueue<String> queue = new ConcurrentLinkedQueue<>();
+    private final ConcurrentLinkedQueue<String> sampleQueue = new ConcurrentLinkedQueue<>();
+    private final static double SAMPLE_PCT = 0.1;
     private final ScheduledExecutorService scheduled = Executors.newSingleThreadScheduledExecutor();
     private int minutes = 0;
+    private final LongAdder count = new LongAdder();
 
     public static void main(String[] args) {
         Scanner sc = new Scanner(System.in);
@@ -53,19 +56,14 @@ public class TaskResultCollector {
 
     private void scheduled() {
         logger.debug("Execute scheduled jobs");
-        Object[] array;
-        synchronized (queue) {
-            array = queue.toArray();
-            queue.clear();
-        }
-        if (array.length == 0) {
+        if (minutes == 0) {
             telemetry(0, 0, 0);
         } else {
-            Set<Object> samples = sample(array);
-            Map<String, Boolean> resMap = sampleVerification(samples);
+            Map<String, Boolean> resMap = sampleVerification();
             int rightCount = rightSampleNum(resMap);
             recordSampleRes(resMap, rightCount);
-            telemetry(array.length, rightCount, SAMPLE_NUM - rightCount);
+            telemetry(count.longValue(), rightCount, SAMPLE_NUM - rightCount);
+            count.reset();
         }
         minutes += 1;
         logger.debug("Execute scheduled jobs down");
@@ -98,7 +96,7 @@ public class TaskResultCollector {
         return rightCount;
     }
 
-    private void telemetry(int taskNum, int rightCount, int errorCount) {
+    private void telemetry(long taskNum, int rightCount, int errorCount) {
         String monitorData = String.format("%d@%d@%d %d %d", 2, minutes, taskNum, rightCount, errorCount);
         logger.debug(String.format("The %dth minute, task number %d, correct sample number %d, error sample number %d",
                 minutes, taskNum, rightCount, errorCount));
@@ -126,15 +124,17 @@ public class TaskResultCollector {
     }
 
     @NotNull
-    private Map<String, Boolean> sampleVerification(@NotNull Set<Object> sampleSet) {
+    private Map<String, Boolean> sampleVerification() {
         Map<String, Boolean> resMap = new HashMap<>();
-        for (Object taskObj : sampleSet) {
+        Object[] array = sampleQueue.toArray();
+        sampleQueue.clear();
+        for (Object taskObj : array) {
             String taskString = (String) taskObj;
             String[] split = taskString.split(" ");
-            int x = Integer.parseInt(split[0].trim());
-            int y = Integer.parseInt(split[1].trim());
+            int x = Integer.parseInt(split[1].trim());
+            int y = Integer.parseInt(split[2].trim());
             String res = TaskExecutor.executeTask(x, y);
-            if (res.equals(split[2])) {
+            if (res.equals(split[3])) {
                 resMap.put(taskString, true);
             } else {
                 resMap.put(taskString, false);
@@ -148,10 +148,14 @@ public class TaskResultCollector {
         scheduled.scheduleAtFixedRate(this::scheduled, 0, 1, TimeUnit.MINUTES);
         for (;;) {
             try {
-                String taskRes = executorConn.getBr().readLine();
-                if (taskRes != null) {
-                    queue.offer(taskRes);
+                String taskString = executorConn.getBr().readLine();
+                if (taskString == null) {
+                    continue;
                 }
+                if (sampleQueue.size() < SAMPLE_NUM && random.nextDouble() <= SAMPLE_PCT) {
+                    sampleQueue.add(taskString);
+                }
+                count.increment();
             } catch (IOException e) {
                 logger.error(e.getMessage());
             }
