@@ -39,7 +39,7 @@ public class Monitor {
 
     public static String getTime() {
         SimpleDateFormat sdf = new SimpleDateFormat();
-        sdf.applyPattern("yyyy-MM-dd-HH-mm");
+        sdf.applyPattern("yyyy-MM-dd-HH-mm-ss-SSS");
         Date date = new Date();
         return sdf.format(date);
     }
@@ -92,6 +92,7 @@ public class Monitor {
 
         StringBuilder sb = new StringBuilder();
         sb.append(String.format("---------- %s minute ----------%n", time));
+        sb.append(String.format("--- %s --%n", getTime()));
         sb.append(String.format("New task number: %d%n", newTaskNum));
         sb.append(String.format("Current TPS: %.2f%n", tps(newTaskNum)));
         generatorTaskNum += newTaskNum;
@@ -111,6 +112,7 @@ public class Monitor {
 
         StringBuilder sb = new StringBuilder();
         sb.append(String.format("---------- %s minute ----------%n", time));
+        sb.append(String.format("--- %s --%n", getTime()));
         sb.append(String.format("New task number: %d%n", newTaskNum));
         sb.append(String.format("Current TPS: %.2f%n", tps(newTaskNum)));
         executorTaskNum += newTaskNum;
@@ -132,6 +134,7 @@ public class Monitor {
 
         StringBuilder sb = new StringBuilder();
         sb.append(String.format("---------- %s minute ----------%n", time));
+        sb.append(String.format("--- %s --%n", getTime()));
         sb.append(String.format("New task number: %d%n", newTaskNum));
         sb.append(String.format("Correct task number: %d%n", correct));
         sb.append(String.format("Incorrect task number: %d%n", incorrect));
