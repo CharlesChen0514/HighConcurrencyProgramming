@@ -18,7 +18,8 @@ public class TaskGenerator {
      * Performance much faster than Random class
      */
     private final ThreadLocalRandom random = ThreadLocalRandom.current();
-    private long taskNum = 0;
+    private long totalTaskNum = 0;
+    private long newTaskNum = 0;
     private final Udp udp;
     private final String monitorIp;
     private final String executorIp;
@@ -72,27 +73,26 @@ public class TaskGenerator {
     }
 
     private void telemetry() {
-        String monitorData = String.format("%d@%d@%s", 0, minutes, taskNum);
+        String monitorData = String.format("%d@%d@%s", 0, minutes, newTaskNum);
+        newTaskNum = 0;
         udp.send(monitorIp, Monitor.getUDP_PORT(), monitorData);
-        taskNum = 0;
     }
 
     private void generateTask() {
         stopWatch.start(String.valueOf(minutes));
-        long c = 0;
-        while (c < targetTpm) {
-            c++;
+        for (long id = totalTaskNum + 1; id < totalTaskNum + targetTpm; id++) {
             int x = random.nextInt(RANGE);
             int y = random.nextInt(RANGE);
             try {
-                String str = x + " " + y + System.lineSeparator();
+                String str = id + " " + x + " " + y + System.lineSeparator();
                 executorConn.getBw().write(str);
                 executorConn.getBw().flush();
             } catch (IOException e) {
                 logger.error(e.getMessage());
             }
         }
-        taskNum += targetTpm;
+        totalTaskNum += targetTpm;
+        newTaskNum = targetTpm;
         stopWatch.stop();
         logger.debug("Generate the {}th minute task takes {} ms", minutes, stopWatch.getLastTaskTimeMillis());
     }

@@ -19,6 +19,7 @@ import java.util.concurrent.*;
 public class TaskExecutor {
     @Getter
     private static final int TCP_PORT = 25522;
+    private static final int QUEUE_SIZE = 800 * 10000;
     private TcpConn generatorConn;
     private TcpConn collectorConn;
     private final Udp udp;
@@ -51,7 +52,7 @@ public class TaskExecutor {
         int processors = Runtime.getRuntime().availableProcessors();
 //        threadPool = (ThreadPoolExecutor) Executors.newFixedThreadPool(processors + 1);
         threadPool = new ThreadPoolExecutor(processors + 1, processors + 1, 0,
-                TimeUnit.SECONDS, new ArrayBlockingQueue<>(400 * 10000), new ThreadPoolExecutor.DiscardPolicy());
+                TimeUnit.SECONDS, new ArrayBlockingQueue<>(QUEUE_SIZE), new ThreadPoolExecutor.DiscardPolicy());
         logger.debug("The maximum number of threads is set to {}", processors + 1);
         try (ServerSocket server = new ServerSocket(TCP_PORT)) {
             logger.debug("Waiting for generator to connect");
@@ -92,10 +93,7 @@ public class TaskExecutor {
                 if (task == null) {
                     continue;
                 }
-                String[] split = task.split(" ");
-                int x = Integer.parseInt(split[0]);
-                int y = Integer.parseInt(split[1]);
-                threadPool.submit(new Task(x, y));
+                threadPool.submit(new Task(task));
             } catch (IOException e) {
                 logger.error(e.getMessage());
             }
@@ -128,16 +126,23 @@ public class TaskExecutor {
         return String.valueOf(ans);
     }
 
-    @AllArgsConstructor
     class Task implements Runnable {
+        private String id;
         private int x;
         private int y;
+
+        public Task(@NotNull String taskStr) {
+            String[] split = taskStr.split(" ");
+            id = split[0];
+            x = Integer.parseInt(split[1]);
+            y = Integer.parseInt(split[2]);
+        }
 
         @Override
         public void run() {
             String res = executeTask(x, y);
             try {
-                String pktString = String.format("%d %d %s%n", x, y, res);
+                String pktString = String.format("%s %d %d %s%n", id, x, y, res);
                 collectorConn.getBw().write(pktString);
             } catch (IOException e) {
                 logger.error(e.getMessage());
