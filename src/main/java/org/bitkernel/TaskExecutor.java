@@ -1,8 +1,8 @@
 package org.bitkernel;
 
 import com.sun.istack.internal.NotNull;
-import lombok.AllArgsConstructor;
 import lombok.Getter;
+import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 
 import javax.xml.bind.DatatypeConverter;
@@ -12,6 +12,8 @@ import java.net.Socket;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Scanner;
 import java.util.concurrent.*;
 
@@ -27,8 +29,6 @@ public class TaskExecutor {
     private final String collectorIp;
     private long completedTaskNum;
     public ThreadPoolExecutor threadPool;
-    private final ScheduledExecutorService telemetry = Executors.newSingleThreadScheduledExecutor();
-    private final ScheduledExecutorService flush = Executors.newSingleThreadScheduledExecutor();
     private int minutes;
 
     public static void main(String[] args) {
@@ -54,6 +54,7 @@ public class TaskExecutor {
         threadPool = new ThreadPoolExecutor(processors + 1, processors + 1, 0,
                 TimeUnit.SECONDS, new ArrayBlockingQueue<>(QUEUE_SIZE), new ThreadPoolExecutor.DiscardPolicy());
         logger.debug("The maximum number of threads is set to {}", processors + 1);
+
         try (ServerSocket server = new ServerSocket(TCP_PORT)) {
             logger.debug("Waiting for generator to connect");
             Socket accept = server.accept();
@@ -69,9 +70,10 @@ public class TaskExecutor {
     }
 
     private void reportToMonitor() {
-        long curCompletedTaskCount = threadPool.getCompletedTaskCount();
+        long curCompletedTaskCount = threadPool.getCompletedTaskCount() * TaskGenerator.getBATCH_SIZE();
         long newTaskCount = curCompletedTaskCount - completedTaskNum;
-        String message = String.format("%d@%d@%d %d", 1, minutes, newTaskCount, threadPool.getQueue().size());
+        String message = String.format("%d@%d@%d %d", 1, minutes, newTaskCount,
+                threadPool.getQueue().size() * TaskGenerator.getBATCH_SIZE());
         completedTaskNum = curCompletedTaskCount;
         udp.send(monitorIp, Monitor.getUDP_PORT(), message);
         minutes += 1;
@@ -79,7 +81,9 @@ public class TaskExecutor {
 
     private void start() {
         logger.debug("Start task executor service");
+        ScheduledExecutorService telemetry = Executors.newSingleThreadScheduledExecutor();
         telemetry.scheduleAtFixedRate(this::reportToMonitor, 0, 1, TimeUnit.MINUTES);
+        ScheduledExecutorService flush = Executors.newSingleThreadScheduledExecutor();
         flush.scheduleAtFixedRate(() -> {
             try {
                 collectorConn.getBw().flush();
@@ -87,13 +91,14 @@ public class TaskExecutor {
                 logger.error(e.getMessage());
             }
         }, 0, 1, TimeUnit.SECONDS);
+
         for (; ; ) {
             try {
-                String task = generatorConn.getBr().readLine();
-                if (task == null) {
+                String taskListString = generatorConn.getBr().readLine();
+                if (taskListString == null) {
                     continue;
                 }
-                threadPool.submit(new Task(task));
+                threadPool.submit(new BatchTask(taskListString));
             } catch (IOException e) {
                 logger.error(e.getMessage());
             }
@@ -126,10 +131,13 @@ public class TaskExecutor {
         return String.valueOf(ans);
     }
 
-    class Task implements Runnable {
+    class Task {
         private String id;
         private int x;
         private int y;
+        @Getter
+        @Setter
+        private String res;
 
         public Task(@NotNull String taskStr) {
             String[] split = taskStr.split(" ");
@@ -139,13 +147,33 @@ public class TaskExecutor {
         }
 
         @Override
+        public String toString() {
+            StringBuilder sb = new StringBuilder();
+            sb.append("id").append(" ").append(x).append(" ").append(y).append(" ").append(res);
+            return sb.toString();
+        }
+    }
+
+    class BatchTask implements Runnable {
+        private final List<Task> taskList = new ArrayList<>();
+
+        public BatchTask(@NotNull String taskListString) {
+            String[] split = taskListString.split("@");
+            for (String str : split) {
+                taskList.add(new Task(str));
+            }
+        }
+
+        @Override
         public void run() {
-            String res = executeTask(x, y);
-            try {
-                String pktString = String.format("%s %d %d %s%n", id, x, y, res);
-                collectorConn.getBw().write(pktString);
-            } catch (IOException e) {
-                logger.error(e.getMessage());
+            for (Task task: taskList) {
+                String res = executeTask(task.x, task.y);
+                task.setRes(res);
+                try {
+                    collectorConn.getBw().write(task + System.lineSeparator());
+                } catch (IOException e) {
+                    logger.error(e.getMessage());
+                }
             }
         }
     }

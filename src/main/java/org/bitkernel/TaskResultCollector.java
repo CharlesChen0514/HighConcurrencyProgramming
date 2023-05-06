@@ -26,7 +26,7 @@ public class TaskResultCollector {
     @Setter
     private String monitorIp;
     private final ConcurrentLinkedQueue<String> sampleQueue = new ConcurrentLinkedQueue<>();
-    private final static double SAMPLE_PCT = 0.1;
+    private final static double SAMPLE_PCT = 0.005;
     private final ScheduledExecutorService scheduled = Executors.newSingleThreadScheduledExecutor();
     private int minutes = 0;
     private final LongAdder count = new LongAdder();
@@ -67,23 +67,6 @@ public class TaskResultCollector {
         }
         minutes += 1;
         logger.debug("Execute scheduled jobs down");
-    }
-
-    @NotNull
-    private Set<Object> sample(@NotNull Object[] array) {
-        logger.debug("Start sampling");
-        Set<Object> sampleSet = new HashSet<>();
-        int taskNum = array.length;
-        if (taskNum < SAMPLE_NUM) {
-            sampleSet.addAll(Arrays.asList(array));
-            return sampleSet;
-        }
-        while (sampleSet.size() < SAMPLE_NUM) {
-            int idx = random.nextInt(taskNum);
-            sampleSet.add(array[idx]);
-        }
-        logger.debug("Sampling done");
-        return sampleSet;
     }
 
     private int rightSampleNum(@NotNull Map<String, Boolean> resMap) {
@@ -141,6 +124,19 @@ public class TaskResultCollector {
             }
         }
         return resMap;
+    }
+
+    private void randomSample(@NotNull String taskListString) {
+        String[] split = taskListString.split("@");
+        for (int i = 0; i < split.length && sampleQueue.size() < SAMPLE_NUM; i++) {
+            if (random.nextDouble() <= SAMPLE_PCT) {
+                sampleQueue.add(split[i]);
+            }
+        }
+    }
+
+    private boolean isNeedSample() {
+        return sampleQueue.size() < SAMPLE_NUM && random.nextDouble() <= SAMPLE_PCT;
     }
 
     private void start() {
