@@ -1,6 +1,7 @@
 package org.bitkernel;
 
 import com.sun.istack.internal.NotNull;
+import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.util.StopWatch;
 
@@ -28,7 +29,9 @@ public class TaskGenerator {
     private TcpConn executorConn;
     private final StopWatch stopWatch;
     private int minutes;
-    private final ScheduledExecutorService scheduledService = Executors.newSingleThreadScheduledExecutor();
+    @Getter
+    private final static int BATCH_SIZE = 32;
+    private final StringBuilder sb = new StringBuilder();
 
     public static void main(String[] args) {
         Scanner sc = new Scanner(System.in);
@@ -63,30 +66,43 @@ public class TaskGenerator {
 
     public void start() {
         logger.debug("Start task generator");
+        ScheduledExecutorService scheduledService = Executors.newSingleThreadScheduledExecutor();
         scheduledService.scheduleAtFixedRate(this::scheduled, 0, 1, TimeUnit.MINUTES);
     }
 
+    /**
+     * Scheduled tasks
+     */
     private void scheduled() {
         telemetry();
         minutes += 1;
-        generateTask();
+        transferTask();
     }
 
+    /**
+     * Report message to the monitor
+     */
     private void telemetry() {
         String monitorData = String.format("%d@%d@%s", 0, minutes, newTaskNum);
         newTaskNum = 0;
         udp.send(monitorIp, Monitor.getUDP_PORT(), monitorData);
     }
 
-    private void generateTask() {
+    /**
+     * Transfer {@link #targetTpm} number of tasks to the executor
+     */
+    private void transferTask() {
         stopWatch.start(String.valueOf(minutes));
-        for (long id = totalTaskNum + 1; id < totalTaskNum + targetTpm; id++) {
-            int x = random.nextInt(RANGE);
-            int y = random.nextInt(RANGE);
+        for (long start = totalTaskNum + 1; start < totalTaskNum + targetTpm; start += BATCH_SIZE) {
+            for (int offset = 0; offset < BATCH_SIZE; offset++) {
+                sb.append(generateTask(start + offset)).append("@");
+            }
+            sb.deleteCharAt(sb.length() - 1);
+            sb.append(System.lineSeparator());
             try {
-                String str = id + " " + x + " " + y + System.lineSeparator();
-                executorConn.getBw().write(str);
+                executorConn.getBw().write(sb.toString());
                 executorConn.getBw().flush();
+                sb.setLength(0);
             } catch (IOException e) {
                 logger.error(e.getMessage());
             }
@@ -95,5 +111,14 @@ public class TaskGenerator {
         newTaskNum = targetTpm;
         stopWatch.stop();
         logger.debug("Generate the {}th minute task takes {} ms", minutes, stopWatch.getLastTaskTimeMillis());
+    }
+
+    @NotNull
+    private String generateTask(long id) {
+        StringBuilder sb = new StringBuilder();
+        int x = random.nextInt(RANGE);
+        int y = random.nextInt(RANGE);
+        sb.append(id).append(" ").append(x).append(" ").append(y);
+        return sb.toString();
     }
 }
