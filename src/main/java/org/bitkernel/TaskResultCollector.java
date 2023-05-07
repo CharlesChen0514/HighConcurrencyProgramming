@@ -115,7 +115,7 @@ public class TaskResultCollector {
             String[] split = taskString.split(" ");
             int x = Integer.parseInt(split[1].trim());
             int y = Integer.parseInt(split[2].trim());
-            String res = TaskExecutor.executeTask(x, y);
+            String res = TaskUtil.executeTask(x, y);
             if (res.equals(split[3])) {
                 resMap.put(taskString, true);
             } else {

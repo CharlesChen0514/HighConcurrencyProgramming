@@ -22,14 +22,14 @@ public class TaskExecutor {
     @Getter
     private static final int TCP_PORT = 25522;
     private static final int QUEUE_SIZE = 800 * 10000;
-    private TcpConn generatorConn;
-    private TcpConn collectorConn;
+    private final ThreadPoolExecutor executeThreadPool;
+    private final ScheduledExecutorService scheduledThreadPool;
     private final Udp udp;
     private final String monitorIp;
     private final String collectorIp;
+    private TcpConn generatorConn;
+    private TcpConn collectorConn;
     private long completedTaskNum;
-    private ThreadPoolExecutor executeThreadPool;
-    private ScheduledExecutorService scheduledThreadPool;
     private int minutes;
 
     public static void main(String[] args) {
@@ -92,7 +92,7 @@ public class TaskExecutor {
             }
         }, 0, 1, TimeUnit.SECONDS);
 
-        for (; ; ) {
+        while(true) {
             try {
                 String taskListString = generatorConn.getBr().readLine();
                 if (taskListString == null) {
@@ -105,36 +105,10 @@ public class TaskExecutor {
         }
     }
 
-    @NotNull
-    public static String executeTask(int x, int y) {
-        String pow = myPow(x, y);
-        byte[] bytes = pow.getBytes(StandardCharsets.UTF_8);
-        try {
-            MessageDigest md = MessageDigest.getInstance("SHA-256");
-            for (int i = 0; i < 10; i++) {
-                bytes = md.digest(bytes);
-            }
-        } catch (NoSuchAlgorithmException e) {
-            logger.error(e.getMessage());
-        }
-        return DatatypeConverter.printHexBinary(bytes);
-    }
-
-    public static String myPow(long x, long n) {
-        long ans = 1;
-        long t = n;
-        while (t != 0) {
-            if ((t & 1) == 1) ans *= x;
-            x *= x;
-            t >>= 1;
-        }
-        return String.valueOf(ans);
-    }
-
     class Task {
-        private String id;
-        private int x;
-        private int y;
+        private final String id;
+        private final int x;
+        private final int y;
         @Getter
         @Setter
         private String res;
@@ -167,7 +141,7 @@ public class TaskExecutor {
         @Override
         public void run() {
             for (Task task: taskList) {
-                String res = executeTask(task.x, task.y);
+                String res = TaskUtil.executeTask(task.x, task.y);
                 task.setRes(res);
                 try {
                     collectorConn.getBw().write(task + System.lineSeparator());
