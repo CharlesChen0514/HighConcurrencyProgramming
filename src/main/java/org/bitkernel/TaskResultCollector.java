@@ -52,7 +52,9 @@ public class TaskResultCollector {
     }
 
     private TaskResultCollector(@NotNull String monitorIp) {
+        logger.debug("Initialize the task collector");
         this.monitorIp = monitorIp;
+
         recordDir = System.getProperty("user.dir") + File.separator + "sample" + File.separator
                 + Monitor.getTime() + File.separator;
         logger.debug("The sampling records are stored in {}", recordDir);
@@ -65,26 +67,28 @@ public class TaskResultCollector {
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
+        logger.debug("Initialize the task collector done");
     }
 
     private void scheduled() {
         logger.debug("Execute scheduled jobs");
         if (minutes == 0) {
             telemetry(0, 0, 0);
-        } else {
-            Map<String, Boolean> resMap = sampleVerification();
-            int rightCount = rightSampleNum(resMap);
-            recordSampleRes(resMap, rightCount);
-            telemetry(taskNum.longValue(), rightCount, SAMPLE_NUM - rightCount);
-            taskNum.reset();
+            return;
         }
+
+        Map<String, Boolean> verificationMap = sampleVerification();
+        int rightCount = rightSampleNum(verificationMap);
+        recordSampleRes(verificationMap, rightCount);
+        telemetry(taskNum.longValue(), rightCount, SAMPLE_NUM - rightCount);
+        taskNum.reset();
         minutes += 1;
         logger.debug("Execute scheduled jobs down");
     }
 
-    private int rightSampleNum(@NotNull Map<String, Boolean> resMap) {
+    private int rightSampleNum(@NotNull Map<String, Boolean> verificationMap) {
         int rightCount = 0;
-        for (Map.Entry<String, Boolean> entry : resMap.entrySet()) {
+        for (Map.Entry<String, Boolean> entry : verificationMap.entrySet()) {
             if (entry.getValue()) {
                 rightCount++;
             }
@@ -121,10 +125,10 @@ public class TaskResultCollector {
 
     @NotNull
     private Map<String, Boolean> sampleVerification() {
-        Map<String, Boolean> resMap = new HashMap<>();
+        Map<String, Boolean> verificationMap = new HashMap<>();
         if (sampleQueue.isEmpty()) {
             logger.error("Sample queue is empty, something error, please check.");
-            return resMap;
+            return verificationMap;
         }
 
         Object[] array = sampleQueue.toArray();
@@ -134,9 +138,9 @@ public class TaskResultCollector {
             byte[] res2 = Task.execute(task);
             String res1Str = DatatypeConverter.printHexBinary(task.getRes());
             String res2Str = DatatypeConverter.printHexBinary(res2);
-            resMap.put(task.toString(), res1Str.equals(res2Str));
+            verificationMap.put(task.toString(), res1Str.equals(res2Str));
         }
-        return resMap;
+        return verificationMap;
     }
 
     private boolean isNeedSample() {

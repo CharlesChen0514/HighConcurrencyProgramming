@@ -62,6 +62,7 @@ public class TaskGenerator {
         this.monitorIp = monitorIp;
         this.executorIp = executorIp;
         this.targetTps = targetTps;
+
         this.targetTpm = targetTps * 60;
         this.batchSize = (int) Math.ceil(targetTps * 1.0 / 100);
         int bufferSize = batchSize * TASK_LEN;

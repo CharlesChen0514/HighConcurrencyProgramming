@@ -43,7 +43,7 @@ public class TaskExecutor {
     private TcpConn generatorConn;
     private TcpConn collectorConn;
 
-    /** Number of tasks completed in one minute */
+    /** Number of tasks completed */
     private long completedTaskNum = 0;
 
     private int minutes = 0;
@@ -64,6 +64,7 @@ public class TaskExecutor {
         logger.debug("Initialize the task executor");
         this.monitorIp = monitorIp;
         this.collectorIp = collectorIp;
+
         int processors = Runtime.getRuntime().availableProcessors();
         executeThreadPool = new ThreadPoolExecutor(processors + 1, processors + 1, 0,
                 TimeUnit.SECONDS, new ArrayBlockingQueue<>(QUEUE_SIZE), new ThreadPoolExecutor.DiscardPolicy());
