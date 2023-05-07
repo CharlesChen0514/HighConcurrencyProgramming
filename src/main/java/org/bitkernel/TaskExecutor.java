@@ -18,16 +18,16 @@ public class TaskExecutor {
     @Getter
     private static final int TCP_PORT = 25522;
     private static final int QUEUE_SIZE = 800 * 10000;
+    private final ScheduledExecutorService scheduledThreadPool = new ScheduledThreadPoolExecutor(2);
     private final ThreadPoolExecutor executeThreadPool;
-    private final ScheduledExecutorService scheduledThreadPool;
-    private final Udp udp;
+    private final Udp udp = new Udp();
+    private final ConcurrentLinkedQueue<Task> taskQueue = new ConcurrentLinkedQueue<>();
     private final String monitorIp;
     private final String collectorIp;
-    private final ConcurrentLinkedQueue<Task> taskQueue;
     private TcpConn generatorConn;
     private TcpConn collectorConn;
-    private long completedTaskNum;
-    private int minutes;
+    private long completedTaskNum = 0;
+    private int minutes = 0;
 
     public static void main(String[] args) {
         Scanner sc = new Scanner(System.in);
@@ -44,16 +44,11 @@ public class TaskExecutor {
         logger.debug("Initialize the task executor");
         this.monitorIp = monitorIp;
         this.collectorIp = collectorIp;
-        completedTaskNum = 0;
-        minutes = 0;
-        udp = new Udp();
-        taskQueue = new ConcurrentLinkedQueue<>();
         int processors = Runtime.getRuntime().availableProcessors();
 //        threadPool = (ThreadPoolExecutor) Executors.newFixedThreadPool(processors + 1);
         executeThreadPool = new ThreadPoolExecutor(processors + 1, processors + 1, 0,
                 TimeUnit.SECONDS, new ArrayBlockingQueue<>(QUEUE_SIZE), new ThreadPoolExecutor.DiscardPolicy());
         logger.debug("The maximum number of threads is set to {}", processors + 1);
-        scheduledThreadPool = new ScheduledThreadPoolExecutor(2);
 
         try (ServerSocket server = new ServerSocket(TCP_PORT)) {
             logger.debug("Waiting for generator to connect");

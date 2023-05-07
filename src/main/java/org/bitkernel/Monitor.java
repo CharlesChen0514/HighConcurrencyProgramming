@@ -13,12 +13,12 @@ public class Monitor {
     @Getter
     private static final int UDP_PORT = 25524;
     private final String recordDir;
-    private final Udp udp;
-    private long generatorTaskNum;
-    private long executorTaskNum;
-    private long collectorTaskNum;
-    private int correctTaskNum;
-    private int incorrectTaskNum;
+    private final Udp udp = new Udp(UDP_PORT);;
+    private long generatorTaskNum = 0L;
+    private long executorTaskNum = 0L;
+    private long collectorTaskNum = 0L;
+    private int correctTaskNum = 0;
+    private int incorrectTaskNum = 0;
 
     public static void main(String[] args) {
         Monitor m = new Monitor();
@@ -26,15 +26,10 @@ public class Monitor {
     }
 
     public Monitor() {
-        udp = new Udp(UDP_PORT);
         recordDir = System.getProperty("user.dir") + File.separator
                 + "monitor" + File.separator + getTime() + File.separator;
         FileUtil.createFolder(recordDir);
-        generatorTaskNum = 0L;
-        executorTaskNum = 0L;
-        collectorTaskNum = 0L;
-        correctTaskNum = 0;
-        incorrectTaskNum = 0;
+        logger.debug("The monitoring message is stored in {}", recordDir);
     }
 
     public static String getTime() {

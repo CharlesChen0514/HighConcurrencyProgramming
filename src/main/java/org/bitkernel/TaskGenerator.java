@@ -15,23 +15,23 @@ import java.util.concurrent.TimeUnit;
 @Slf4j
 public class TaskGenerator {
     private static final int RANGE = 65535;
+    @Getter
+    private final static int BATCH_SIZE = 32;
     /**
      * Performance much faster than Random class
      */
     private final ThreadLocalRandom random = ThreadLocalRandom.current();
-    private long totalTaskNum = 0;
-    private long newTaskNum = 0;
-    private final Udp udp;
+    private final StringBuilder sb = new StringBuilder();
+    private final StopWatch stopWatch = new StopWatch();
+    private final Udp udp = new Udp();
     private final String monitorIp;
     private final String executorIp;
     private final long targetTps;
     private final long targetTpm;
     private TcpConn executorConn;
-    private final StopWatch stopWatch;
-    private int minutes;
-    @Getter
-    private final static int BATCH_SIZE = 32;
-    private final StringBuilder sb = new StringBuilder();
+    private int minutes = 0;
+    private long totalTaskNum = 0;
+    private long newTaskNum = 0;
 
     public static void main(String[] args) {
         Scanner sc = new Scanner(System.in);
@@ -52,9 +52,7 @@ public class TaskGenerator {
         this.executorIp = executorIp;
         this.targetTps = targetTps;
         this.targetTpm = targetTps * 60;
-        minutes = 0;
-        udp = new Udp();
-        stopWatch = new StopWatch();
+
         try {
             executorConn = new TcpConn(executorIp, TaskExecutor.getTCP_PORT());
         } catch (Exception e) {

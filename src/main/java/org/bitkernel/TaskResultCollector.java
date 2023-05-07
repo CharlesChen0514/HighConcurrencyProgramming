@@ -2,7 +2,6 @@ package org.bitkernel;
 
 import com.sun.istack.internal.NotNull;
 import lombok.Getter;
-import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.File;
@@ -21,9 +20,9 @@ public class TaskResultCollector {
     private final static int SAMPLE_NUM = 100;
     private final static double SAMPLE_PCT = 0.005;
     private final static ThreadLocalRandom random = ThreadLocalRandom.current();
-    private final String RECORD_DIR;
+    private final String recordDir;
     private final TcpConn executorConn;
-    private final Udp udp;
+    private final Udp udp = new Udp();
     private final String monitorIp;
     private final ConcurrentLinkedQueue<String> sampleQueue = new ConcurrentLinkedQueue<>();
     private final ScheduledExecutorService scheduled = Executors.newSingleThreadScheduledExecutor();
@@ -40,9 +39,10 @@ public class TaskResultCollector {
 
     private TaskResultCollector(@NotNull String monitorIp) {
         this.monitorIp = monitorIp;
-        udp = new Udp();
-        RECORD_DIR = System.getProperty("user.dir") + File.separator + "sample" + File.separator
+        recordDir = System.getProperty("user.dir") + File.separator + "sample" + File.separator
                 + Monitor.getTime() + File.separator;
+        logger.debug("The sampling records are stored in {}", recordDir);
+
         try (ServerSocket server = new ServerSocket(TCP_PORT)) {
             logger.debug("Waiting for executor to connect");
             Socket accept = server.accept();
@@ -96,7 +96,7 @@ public class TaskResultCollector {
             }
         }
 
-        String path = RECORD_DIR + minutes;
+        String path = recordDir + minutes;
         String content = String.format("Total of %d tasks calculated correctly, accuracy %.2f%% %n",
                 rightCount, rightCount * 100.0 / SAMPLE_NUM);
         content += rightSb + System.lineSeparator();
@@ -139,7 +139,7 @@ public class TaskResultCollector {
     }
 
     private void start() {
-        FileUtil.createFolder(RECORD_DIR);
+        FileUtil.createFolder(recordDir);
         scheduled.scheduleAtFixedRate(this::scheduled, 0, 1, TimeUnit.MINUTES);
         for (;;) {
             try {
