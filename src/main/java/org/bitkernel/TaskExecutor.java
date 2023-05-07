@@ -54,8 +54,9 @@ public class TaskExecutor {
         String monitorIp = sc.next();
         System.out.print("Please input the collector ip: ");
         String collectorIp = sc.next();
-        TaskExecutor taskExecutor = new TaskExecutor(monitorIp, collectorIp);
         logger.debug(String.format("Monitor ip: %s, collector ip:%s", monitorIp, collectorIp));
+
+        TaskExecutor taskExecutor = new TaskExecutor(monitorIp, collectorIp);
         taskExecutor.start();
     }
 

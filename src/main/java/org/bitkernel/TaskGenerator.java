@@ -50,9 +50,10 @@ public class TaskGenerator {
         String executorIp = sc.next();
         System.out.print("Please input the target TPS: ");
         long targetTps = sc.nextLong();
-        TaskGenerator taskGenerator = new TaskGenerator(monitorIp, executorIp, targetTps);
         logger.debug(String.format("Monitor ip: %s, executor ip:%s, target TPS: %d",
                 monitorIp, executorIp, targetTps));
+
+        TaskGenerator taskGenerator = new TaskGenerator(monitorIp, executorIp, targetTps);
         taskGenerator.start();
     }
 

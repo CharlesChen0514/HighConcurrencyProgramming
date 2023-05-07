@@ -46,8 +46,9 @@ public class TaskResultCollector {
         Scanner sc = new Scanner(System.in);
         System.out.print("Please input the monitor ip: ");
         String monitorIp = sc.next();
-        TaskResultCollector collector = new TaskResultCollector(monitorIp);
         logger.debug(String.format("Monitor ip: %s", monitorIp));
+
+        TaskResultCollector collector = new TaskResultCollector(monitorIp);
         collector.start();
     }
 
@@ -74,6 +75,7 @@ public class TaskResultCollector {
         logger.debug("Execute scheduled jobs");
         if (minutes == 0) {
             telemetry(0, 0, 0);
+            minutes += 1;
             return;
         }
 
