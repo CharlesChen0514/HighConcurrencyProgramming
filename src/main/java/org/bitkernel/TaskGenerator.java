@@ -7,10 +7,7 @@ import org.springframework.util.StopWatch;
 
 import java.io.IOException;
 import java.util.Scanner;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ThreadLocalRandom;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 
 @Slf4j
 public class TaskGenerator {
@@ -23,6 +20,7 @@ public class TaskGenerator {
     private final ThreadLocalRandom random = ThreadLocalRandom.current();
     private final StringBuilder sb = new StringBuilder();
     private final StopWatch stopWatch = new StopWatch();
+    private final ScheduledExecutorService scheduledThreadPool = new ScheduledThreadPoolExecutor(2);
     private final Udp udp = new Udp();
     private final String monitorIp;
     private final String executorIp;
@@ -32,6 +30,7 @@ public class TaskGenerator {
     private int minutes = 0;
     private long totalTaskNum = 0;
     private long newTaskNum = 0;
+    private long taskGenerateTime = 0L;
 
     public static void main(String[] args) {
         Scanner sc = new Scanner(System.in);
@@ -64,25 +63,19 @@ public class TaskGenerator {
 
     public void start() {
         logger.debug("Start task generator");
-        ScheduledExecutorService scheduledService = Executors.newSingleThreadScheduledExecutor();
-        scheduledService.scheduleAtFixedRate(this::scheduled, 0, 1, TimeUnit.MINUTES);
-    }
-
-    /**
-     * Scheduled tasks
-     */
-    private void scheduled() {
-        telemetry();
-        minutes += 1;
-        transferTask();
+        scheduledThreadPool.scheduleAtFixedRate(this::telemetry, 0, 1, TimeUnit.MINUTES);
+        scheduledThreadPool.scheduleAtFixedRate(this::transferTask, 0, 1, TimeUnit.SECONDS);
     }
 
     /**
      * Report message to the monitor
      */
     private void telemetry() {
+        logger.debug("Generate the {}th minute task takes {} ms", minutes, taskGenerateTime);
+        taskGenerateTime = 0;
         String monitorData = String.format("%d@%d@%s", 0, minutes, newTaskNum);
         newTaskNum = 0;
+        minutes += 1;
         udp.send(monitorIp, Monitor.getUDP_PORT(), monitorData);
     }
 
@@ -90,8 +83,8 @@ public class TaskGenerator {
      * Transfer {@link #targetTpm} number of tasks to the executor
      */
     private void transferTask() {
-        stopWatch.start(String.valueOf(minutes));
-        for (long start = totalTaskNum + 1; start < totalTaskNum + targetTpm; start += BATCH_SIZE) {
+        stopWatch.start(String.valueOf(System.currentTimeMillis()));
+        for (long start = totalTaskNum + 1; start < totalTaskNum + targetTps; start += BATCH_SIZE) {
             for (int offset = 0; offset < BATCH_SIZE; offset++) {
                 sb.append(generateTask(start + offset)).append("@");
             }
@@ -105,10 +98,10 @@ public class TaskGenerator {
                 logger.error(e.getMessage());
             }
         }
-        totalTaskNum += targetTpm;
-        newTaskNum = targetTpm;
+        totalTaskNum += targetTps;
+        newTaskNum += targetTps;
         stopWatch.stop();
-        logger.debug("Generate the {}th minute task takes {} ms", minutes, stopWatch.getLastTaskTimeMillis());
+        taskGenerateTime += stopWatch.getLastTaskTimeMillis();
     }
 
     @NotNull
