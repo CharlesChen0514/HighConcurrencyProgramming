@@ -2,7 +2,6 @@ package org.bitkernel;
 
 import com.sun.istack.internal.NotNull;
 import lombok.Getter;
-import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
@@ -18,20 +17,35 @@ import java.util.concurrent.*;
 public class TaskExecutor {
     @Getter
     private static final int TCP_PORT = 25522;
-    private static final int QUEUE_SIZE = 800 * 10000;
+
+    /** Byte size of the task include the result */
     @Getter
-    private static final int TASK_LEN = 12 + 32;
-    private final ScheduledExecutorService scheduledThreadPool = new ScheduledThreadPoolExecutor(2);
+    private static final int TOTAL_TASK_LEN = TaskGenerator.getTASK_LEN() + 32;
+
+    /** The number of tasks a thread needs to run at one time */
+    private static final int RUN_BATCH_SIZE = 1000;
+
+    /** Queue size in thread pool */
+    private static final int QUEUE_SIZE = 800 * 10000;
     private final ThreadPoolExecutor executeThreadPool;
+
     private final Udp udp = new Udp();
+
+    /** Cache queue for tasks, added to the queue when task execution is complete */
     private final ConcurrentLinkedQueue<Task> taskQueue = new ConcurrentLinkedQueue<>();
-    private final ByteBuffer readBuffer = ByteBuffer.allocate(TaskGenerator.getBUFFER_SIZE());
-    private final ByteBuffer writeBuffer = ByteBuffer.allocate(TaskGenerator.getBATCH_SIZE() * TASK_LEN);
+
+    private final ByteBuffer readBuffer = ByteBuffer.allocate(RUN_BATCH_SIZE * TaskGenerator.getTASK_LEN());
+    private final ByteBuffer writeBuffer = ByteBuffer.allocate(RUN_BATCH_SIZE * TOTAL_TASK_LEN);
+
     private final String monitorIp;
     private final String collectorIp;
+
     private TcpConn generatorConn;
     private TcpConn collectorConn;
+
+    /** Number of tasks completed in one minute */
     private long completedTaskNum = 0;
+
     private int minutes = 0;
 
     public static void main(String[] args) {
@@ -41,6 +55,7 @@ public class TaskExecutor {
         System.out.print("Please input the collector ip: ");
         String collectorIp = sc.next();
         TaskExecutor taskExecutor = new TaskExecutor(monitorIp, collectorIp);
+        logger.debug(String.format("Monitor ip: %s, collector ip:%s", monitorIp, collectorIp));
         taskExecutor.start();
     }
 
@@ -50,8 +65,7 @@ public class TaskExecutor {
         this.monitorIp = monitorIp;
         this.collectorIp = collectorIp;
         int processors = Runtime.getRuntime().availableProcessors();
-//        threadPool = (ThreadPoolExecutor) Executors.newFixedThreadPool(processors + 1);
-        executeThreadPool = new ThreadPoolExecutor(processors - 1, processors - 1, 0,
+        executeThreadPool = new ThreadPoolExecutor(processors + 1, processors + 1, 0,
                 TimeUnit.SECONDS, new ArrayBlockingQueue<>(QUEUE_SIZE), new ThreadPoolExecutor.DiscardPolicy());
         logger.debug("The maximum number of threads is set to {}", processors + 1);
 
@@ -70,10 +84,10 @@ public class TaskExecutor {
     }
 
     private void reportToMonitor() {
-        long curCompletedTaskCount = executeThreadPool.getCompletedTaskCount() * TaskGenerator.getBATCH_SIZE();
+        long curCompletedTaskCount = executeThreadPool.getCompletedTaskCount() * RUN_BATCH_SIZE;
         long newTaskCount = curCompletedTaskCount - completedTaskNum;
         String message = String.format("%d@%d@%d %d", 1, minutes, newTaskCount,
-                executeThreadPool.getQueue().size() * TaskGenerator.getBATCH_SIZE());
+                executeThreadPool.getQueue().size() * RUN_BATCH_SIZE);
         completedTaskNum = curCompletedTaskCount;
         udp.send(monitorIp, Monitor.getUDP_PORT(), message);
         minutes += 1;
@@ -90,12 +104,12 @@ public class TaskExecutor {
             writeBuffer.putShort((short) (task.getX() & 0xffff));
             writeBuffer.putShort((short) (task.getY() & 0xffff));
             writeBuffer.put(task.getRes());
+
             c += 1;
-            if (c == TaskGenerator.getBATCH_SIZE()) {
+            if (c == RUN_BATCH_SIZE) {
                 try {
                     collectorConn.getDout().write(writeBuffer.array());
                     collectorConn.getDout().flush();
-//                    logger.debug("Send success");
                 } catch (IOException e) {
                     logger.error(e.getMessage());
                 }
@@ -107,20 +121,15 @@ public class TaskExecutor {
 
     private void start() {
         logger.debug("Start task executor service");
-        scheduledThreadPool.scheduleAtFixedRate(this::reportToMonitor, 0, 1, TimeUnit.MINUTES);
-//        scheduledThreadPool.scheduleAtFixedRate(() -> {
-//            try {
-//                collectorConn.getBw().flush();
-//            } catch (IOException e) {
-//                logger.error(e.getMessage());
-//            }
-//        }, 0, 1, TimeUnit.SECONDS);
+        ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
+        scheduler.scheduleAtFixedRate(this::reportToMonitor, 0, 1, TimeUnit.MINUTES);
         executeThreadPool.submit(this::transfer);
 
         while (true) {
             try {
                 generatorConn.getDin().read(readBuffer.array());
                 BatchTask batchTask = new BatchTask(readBuffer);
+                readBuffer.clear();
                 executeThreadPool.submit(batchTask);
             } catch (IOException e) {
                 logger.error(e.getMessage());
@@ -132,13 +141,12 @@ public class TaskExecutor {
         private final List<Task> taskList = new ArrayList<>();
 
         public BatchTask(@NotNull ByteBuffer buffer) {
-            for (int i = 0; i < TaskGenerator.getBATCH_SIZE(); i++) {
+            for (int i = 0; i < RUN_BATCH_SIZE; i++) {
                 long id = buffer.getLong();
                 int x = buffer.getShort() & 0xffff;
                 int y = buffer.getShort() & 0xffff;
                 taskList.add(new Task(id, x, y));
             }
-            buffer.clear();
         }
 
         @Override

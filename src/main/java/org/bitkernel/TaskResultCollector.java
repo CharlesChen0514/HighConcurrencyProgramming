@@ -18,20 +18,28 @@ import java.util.concurrent.atomic.LongAdder;
 
 @Slf4j
 public class TaskResultCollector {
+
+    private final static ThreadLocalRandom random = ThreadLocalRandom.current();
     @Getter
     private final static int TCP_PORT = 25523;
+
+    /** Number of sample verification */
     @Getter
     private final static int SAMPLE_NUM = 100;
+    /** Sampling probability */
     private final static double SAMPLE_PCT = 0.005;
-    private final static ThreadLocalRandom random = ThreadLocalRandom.current();
+    /** Directory of the sample verification result record */
     private final String recordDir;
-    private final TcpConn executorConn;
+
+    private final ConcurrentLinkedQueue<Task> sampleQueue = new ConcurrentLinkedQueue<>();
+
     private final Udp udp = new Udp();
     private final String monitorIp;
-    private final ConcurrentLinkedQueue<Task> sampleQueue = new ConcurrentLinkedQueue<>();
-    private final ScheduledExecutorService scheduled = Executors.newSingleThreadScheduledExecutor();
-    private final LongAdder count = new LongAdder();
-    private final ByteBuffer readBuffer = ByteBuffer.allocate(TaskExecutor.getTASK_LEN());
+    private final TcpConn executorConn;
+    private final ByteBuffer readBuffer = ByteBuffer.allocate(TaskExecutor.getTOTAL_TASK_LEN());
+
+    /** Number of tasks received in one minute */
+    private final LongAdder taskNum = new LongAdder();
     private int minutes = 0;
 
     public static void main(String[] args) {
@@ -39,6 +47,7 @@ public class TaskResultCollector {
         System.out.print("Please input the monitor ip: ");
         String monitorIp = sc.next();
         TaskResultCollector collector = new TaskResultCollector(monitorIp);
+        logger.debug(String.format("Monitor ip: %s", monitorIp));
         collector.start();
     }
 
@@ -66,8 +75,8 @@ public class TaskResultCollector {
             Map<String, Boolean> resMap = sampleVerification();
             int rightCount = rightSampleNum(resMap);
             recordSampleRes(resMap, rightCount);
-            telemetry(count.longValue(), rightCount, SAMPLE_NUM - rightCount);
-            count.reset();
+            telemetry(taskNum.longValue(), rightCount, SAMPLE_NUM - rightCount);
+            taskNum.reset();
         }
         minutes += 1;
         logger.debug("Execute scheduled jobs down");
@@ -117,6 +126,7 @@ public class TaskResultCollector {
             logger.error("Sample queue is empty, something error, please check.");
             return resMap;
         }
+
         Object[] array = sampleQueue.toArray();
         sampleQueue.clear();
         for (Object taskObj : array) {
@@ -135,7 +145,9 @@ public class TaskResultCollector {
 
     private void start() {
         FileUtil.createFolder(recordDir);
+        ScheduledExecutorService scheduled = Executors.newSingleThreadScheduledExecutor();
         scheduled.scheduleAtFixedRate(this::scheduled, 0, 1, TimeUnit.MINUTES);
+
         while (true) {
             try {
                 executorConn.getDin().read(readBuffer.array());
@@ -148,7 +160,7 @@ public class TaskResultCollector {
                     sampleQueue.add(new Task(id, x, y, res));
                 }
                 readBuffer.clear();
-                count.increment();
+                taskNum.increment();
             } catch (IOException e) {
                 logger.error(e.getMessage());
             }
