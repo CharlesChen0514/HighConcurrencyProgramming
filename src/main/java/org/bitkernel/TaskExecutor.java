@@ -5,13 +5,9 @@ import lombok.Getter;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 
-import javax.xml.bind.DatatypeConverter;
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Scanner;
@@ -27,6 +23,7 @@ public class TaskExecutor {
     private final Udp udp;
     private final String monitorIp;
     private final String collectorIp;
+    private final ConcurrentLinkedQueue<Task> taskQueue;
     private TcpConn generatorConn;
     private TcpConn collectorConn;
     private long completedTaskNum;
@@ -50,12 +47,13 @@ public class TaskExecutor {
         completedTaskNum = 0;
         minutes = 0;
         udp = new Udp();
+        taskQueue = new ConcurrentLinkedQueue<>();
         int processors = Runtime.getRuntime().availableProcessors();
 //        threadPool = (ThreadPoolExecutor) Executors.newFixedThreadPool(processors + 1);
         executeThreadPool = new ThreadPoolExecutor(processors + 1, processors + 1, 0,
                 TimeUnit.SECONDS, new ArrayBlockingQueue<>(QUEUE_SIZE), new ThreadPoolExecutor.DiscardPolicy());
         logger.debug("The maximum number of threads is set to {}", processors + 1);
-        scheduledThreadPool = new ScheduledThreadPoolExecutor(3);
+        scheduledThreadPool = new ScheduledThreadPoolExecutor(2);
 
         try (ServerSocket server = new ServerSocket(TCP_PORT)) {
             logger.debug("Waiting for generator to connect");
@@ -81,6 +79,20 @@ public class TaskExecutor {
         minutes += 1;
     }
 
+    private void transfer() {
+        while (true) {
+            if (taskQueue.isEmpty()) {
+                continue;
+            }
+            Task task = taskQueue.poll();
+            try {
+                collectorConn.getBw().write(task + System.lineSeparator());
+            } catch (IOException e) {
+                logger.error(e.getMessage());
+            }
+        }
+    }
+
     private void start() {
         logger.debug("Start task executor service");
         scheduledThreadPool.scheduleAtFixedRate(this::reportToMonitor, 0, 1, TimeUnit.MINUTES);
@@ -91,8 +103,9 @@ public class TaskExecutor {
                 logger.error(e.getMessage());
             }
         }, 0, 1, TimeUnit.SECONDS);
+        executeThreadPool.submit(this::transfer);
 
-        while(true) {
+        while (true) {
             try {
                 String taskListString = generatorConn.getBr().readLine();
                 if (taskListString == null) {
@@ -140,14 +153,10 @@ public class TaskExecutor {
 
         @Override
         public void run() {
-            for (Task task: taskList) {
+            for (Task task : taskList) {
                 String res = TaskUtil.executeTask(task.x, task.y);
                 task.setRes(res);
-                try {
-                    collectorConn.getBw().write(task + System.lineSeparator());
-                } catch (IOException e) {
-                    logger.error(e.getMessage());
-                }
+                taskQueue.offer(task);
             }
         }
     }
