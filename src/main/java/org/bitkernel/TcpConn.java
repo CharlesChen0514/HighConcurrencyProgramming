@@ -11,18 +11,24 @@ import java.net.Socket;
 @Slf4j
 public class TcpConn {
     @Getter
-    private Socket socket;
+    private final Socket socket;
     @Getter
     private BufferedReader br;
     @Getter
     private BufferedWriter bw;
     private static final int BUFFER_SIZE = 8192 * 2;
+    @Getter
+    private DataOutputStream dout;
+    @Getter
+    private DataInputStream din;
 
     public TcpConn(@NotNull Socket socket) {
         this.socket = socket;
         try {
             bw = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream()), BUFFER_SIZE);
             br = new BufferedReader(new InputStreamReader(socket.getInputStream()), BUFFER_SIZE);
+            dout = new DataOutputStream(socket.getOutputStream());
+            din = new DataInputStream(socket.getInputStream());
         } catch (IOException e) {
             logger.error(e.getMessage());
         }
@@ -40,16 +46,6 @@ public class TcpConn {
         } catch (Exception e) {
             logger.debug("Tcp port {} is unavailable", port);
             return false;
-        }
-    }
-
-    public void close() {
-        try {
-            br.close();
-            bw.close();
-            socket.close();
-        } catch (IOException e) {
-            logger.error("Close resource error");
         }
     }
 }

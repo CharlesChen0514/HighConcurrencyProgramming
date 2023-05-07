@@ -4,11 +4,15 @@ import com.sun.istack.internal.NotNull;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
+import javax.xml.bind.DatatypeConverter;
 import java.io.File;
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.util.*;
+import java.nio.ByteBuffer;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Scanner;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.LongAdder;
 
@@ -24,9 +28,10 @@ public class TaskResultCollector {
     private final TcpConn executorConn;
     private final Udp udp = new Udp();
     private final String monitorIp;
-    private final ConcurrentLinkedQueue<String> sampleQueue = new ConcurrentLinkedQueue<>();
+    private final ConcurrentLinkedQueue<Task> sampleQueue = new ConcurrentLinkedQueue<>();
     private final ScheduledExecutorService scheduled = Executors.newSingleThreadScheduledExecutor();
     private final LongAdder count = new LongAdder();
+    private final ByteBuffer readBuffer = ByteBuffer.allocate(TaskExecutor.getTASK_LEN());
     private int minutes = 0;
 
     public static void main(String[] args) {
@@ -108,30 +113,20 @@ public class TaskResultCollector {
     @NotNull
     private Map<String, Boolean> sampleVerification() {
         Map<String, Boolean> resMap = new HashMap<>();
+        if (sampleQueue.isEmpty()) {
+            logger.error("Sample queue is empty, something error, please check.");
+            return resMap;
+        }
         Object[] array = sampleQueue.toArray();
         sampleQueue.clear();
         for (Object taskObj : array) {
-            String taskString = (String) taskObj;
-            String[] split = taskString.split(" ");
-            int x = Integer.parseInt(split[1].trim());
-            int y = Integer.parseInt(split[2].trim());
-            String res = TaskUtil.executeTask(x, y);
-            if (res.equals(split[3])) {
-                resMap.put(taskString, true);
-            } else {
-                resMap.put(taskString, false);
-            }
+            Task task = (Task) taskObj;
+            byte[] res2 = Task.execute(task);
+            String res1Str = DatatypeConverter.printHexBinary(task.getRes());
+            String res2Str = DatatypeConverter.printHexBinary(res2);
+            resMap.put(task.toString(), res1Str.equals(res2Str));
         }
         return resMap;
-    }
-
-    private void randomSample(@NotNull String taskListString) {
-        String[] split = taskListString.split("@");
-        for (int i = 0; i < split.length && sampleQueue.size() < SAMPLE_NUM; i++) {
-            if (random.nextDouble() <= SAMPLE_PCT) {
-                sampleQueue.add(split[i]);
-            }
-        }
     }
 
     private boolean isNeedSample() {
@@ -141,15 +136,18 @@ public class TaskResultCollector {
     private void start() {
         FileUtil.createFolder(recordDir);
         scheduled.scheduleAtFixedRate(this::scheduled, 0, 1, TimeUnit.MINUTES);
-        for (;;) {
+        while (true) {
             try {
-                String taskString = executorConn.getBr().readLine();
-                if (taskString == null) {
-                    continue;
+                executorConn.getDin().read(readBuffer.array());
+                if (isNeedSample()) {
+                    long id = readBuffer.getLong();
+                    int x = readBuffer.getShort() & 0xffff;
+                    int y = readBuffer.getShort() & 0xffff;
+                    byte[] res = new byte[32];
+                    readBuffer.get(res);
+                    sampleQueue.add(new Task(id, x, y, res));
                 }
-                if (sampleQueue.size() < SAMPLE_NUM && random.nextDouble() <= SAMPLE_PCT) {
-                    sampleQueue.add(taskString);
-                }
+                readBuffer.clear();
                 count.increment();
             } catch (IOException e) {
                 logger.error(e.getMessage());

@@ -6,6 +6,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.util.StopWatch;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.util.Scanner;
 import java.util.concurrent.*;
 
@@ -13,14 +14,17 @@ import java.util.concurrent.*;
 public class TaskGenerator {
     private static final int RANGE = 65535;
     @Getter
-    private final static int BATCH_SIZE = 32;
+    private final static int BATCH_SIZE = 1000;
+    private final static int TASK_LEN = 12;
+    @Getter
+    private final static int BUFFER_SIZE = BATCH_SIZE * TASK_LEN;
     /**
      * Performance much faster than Random class
      */
     private final ThreadLocalRandom random = ThreadLocalRandom.current();
-    private final StringBuilder sb = new StringBuilder();
     private final StopWatch stopWatch = new StopWatch();
     private final ScheduledExecutorService scheduledThreadPool = new ScheduledThreadPoolExecutor(2);
+    private final ByteBuffer buffer = ByteBuffer.allocate(BUFFER_SIZE);
     private final Udp udp = new Udp();
     private final String monitorIp;
     private final String executorIp;
@@ -65,6 +69,9 @@ public class TaskGenerator {
         logger.debug("Start task generator");
         scheduledThreadPool.scheduleAtFixedRate(this::telemetry, 0, 1, TimeUnit.MINUTES);
         scheduledThreadPool.scheduleAtFixedRate(this::transferTask, 0, 1, TimeUnit.SECONDS);
+//        while (true) {
+//            transferTask();
+//        }
     }
 
     /**
@@ -86,30 +93,28 @@ public class TaskGenerator {
         stopWatch.start(String.valueOf(System.currentTimeMillis()));
         for (long start = totalTaskNum + 1; start < totalTaskNum + targetTps; start += BATCH_SIZE) {
             for (int offset = 0; offset < BATCH_SIZE; offset++) {
-                sb.append(generateTask(start + offset)).append("@");
+                buffer.putLong(start + offset);
+                int x = random.nextInt(RANGE);
+                int y = random.nextInt(RANGE);
+                buffer.putShort((short) (x & 0xffff));
+                buffer.putShort((short) (y & 0xffff));
             }
-            sb.deleteCharAt(sb.length() - 1);
-            sb.append(System.lineSeparator());
             try {
-                executorConn.getBw().write(sb.toString());
-                executorConn.getBw().flush();
-                sb.setLength(0);
+                executorConn.getDout().write(buffer.array());
+                executorConn.getDout().flush();
             } catch (IOException e) {
                 logger.error(e.getMessage());
             }
+            buffer.clear();
         }
         totalTaskNum += targetTps;
         newTaskNum += targetTps;
         stopWatch.stop();
         taskGenerateTime += stopWatch.getLastTaskTimeMillis();
-    }
-
-    @NotNull
-    private String generateTask(long id) {
-        StringBuilder sb = new StringBuilder();
-        int x = random.nextInt(RANGE);
-        int y = random.nextInt(RANGE);
-        sb.append(id).append(" ").append(x).append(" ").append(y);
-        return sb.toString();
+        try {
+            Thread.sleep(1000 - stopWatch.getLastTaskTimeMillis());
+        } catch (InterruptedException e) {
+            logger.error(e.getMessage());
+        }
     }
 }

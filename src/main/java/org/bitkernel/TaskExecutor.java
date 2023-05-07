@@ -8,6 +8,7 @@ import lombok.extern.slf4j.Slf4j;
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Scanner;
@@ -18,10 +19,14 @@ public class TaskExecutor {
     @Getter
     private static final int TCP_PORT = 25522;
     private static final int QUEUE_SIZE = 800 * 10000;
+    @Getter
+    private static final int TASK_LEN = 12 + 32;
     private final ScheduledExecutorService scheduledThreadPool = new ScheduledThreadPoolExecutor(2);
     private final ThreadPoolExecutor executeThreadPool;
     private final Udp udp = new Udp();
     private final ConcurrentLinkedQueue<Task> taskQueue = new ConcurrentLinkedQueue<>();
+    private final ByteBuffer readBuffer = ByteBuffer.allocate(TaskGenerator.getBUFFER_SIZE());
+    private final ByteBuffer writeBuffer = ByteBuffer.allocate(TaskGenerator.getBATCH_SIZE() * TASK_LEN);
     private final String monitorIp;
     private final String collectorIp;
     private TcpConn generatorConn;
@@ -46,7 +51,7 @@ public class TaskExecutor {
         this.collectorIp = collectorIp;
         int processors = Runtime.getRuntime().availableProcessors();
 //        threadPool = (ThreadPoolExecutor) Executors.newFixedThreadPool(processors + 1);
-        executeThreadPool = new ThreadPoolExecutor(processors + 1, processors + 1, 0,
+        executeThreadPool = new ThreadPoolExecutor(processors - 1, processors - 1, 0,
                 TimeUnit.SECONDS, new ArrayBlockingQueue<>(QUEUE_SIZE), new ThreadPoolExecutor.DiscardPolicy());
         logger.debug("The maximum number of threads is set to {}", processors + 1);
 
@@ -75,15 +80,27 @@ public class TaskExecutor {
     }
 
     private void transfer() {
+        int c = 0;
         while (true) {
             if (taskQueue.isEmpty()) {
                 continue;
             }
             Task task = taskQueue.poll();
-            try {
-                collectorConn.getBw().write(task + System.lineSeparator());
-            } catch (IOException e) {
-                logger.error(e.getMessage());
+            writeBuffer.putLong(task.getId());
+            writeBuffer.putShort((short) (task.getX() & 0xffff));
+            writeBuffer.putShort((short) (task.getY() & 0xffff));
+            writeBuffer.put(task.getRes());
+            c += 1;
+            if (c == TaskGenerator.getBATCH_SIZE()) {
+                try {
+                    collectorConn.getDout().write(writeBuffer.array());
+                    collectorConn.getDout().flush();
+//                    logger.debug("Send success");
+                } catch (IOException e) {
+                    logger.error(e.getMessage());
+                }
+                c = 0;
+                writeBuffer.clear();
             }
         }
     }
@@ -91,65 +108,43 @@ public class TaskExecutor {
     private void start() {
         logger.debug("Start task executor service");
         scheduledThreadPool.scheduleAtFixedRate(this::reportToMonitor, 0, 1, TimeUnit.MINUTES);
-        scheduledThreadPool.scheduleAtFixedRate(() -> {
-            try {
-                collectorConn.getBw().flush();
-            } catch (IOException e) {
-                logger.error(e.getMessage());
-            }
-        }, 0, 1, TimeUnit.SECONDS);
+//        scheduledThreadPool.scheduleAtFixedRate(() -> {
+//            try {
+//                collectorConn.getBw().flush();
+//            } catch (IOException e) {
+//                logger.error(e.getMessage());
+//            }
+//        }, 0, 1, TimeUnit.SECONDS);
         executeThreadPool.submit(this::transfer);
 
         while (true) {
             try {
-                String taskListString = generatorConn.getBr().readLine();
-                if (taskListString == null) {
-                    continue;
-                }
-                executeThreadPool.submit(new BatchTask(taskListString));
+                generatorConn.getDin().read(readBuffer.array());
+                BatchTask batchTask = new BatchTask(readBuffer);
+                executeThreadPool.submit(batchTask);
             } catch (IOException e) {
                 logger.error(e.getMessage());
             }
-        }
-    }
-
-    class Task {
-        private final String id;
-        private final int x;
-        private final int y;
-        @Getter
-        @Setter
-        private String res;
-
-        public Task(@NotNull String taskStr) {
-            String[] split = taskStr.split(" ");
-            id = split[0];
-            x = Integer.parseInt(split[1]);
-            y = Integer.parseInt(split[2]);
-        }
-
-        @Override
-        public String toString() {
-            StringBuilder sb = new StringBuilder();
-            sb.append(id).append(" ").append(x).append(" ").append(y).append(" ").append(res);
-            return sb.toString();
         }
     }
 
     class BatchTask implements Runnable {
         private final List<Task> taskList = new ArrayList<>();
 
-        public BatchTask(@NotNull String taskListString) {
-            String[] split = taskListString.split("@");
-            for (String str : split) {
-                taskList.add(new Task(str));
+        public BatchTask(@NotNull ByteBuffer buffer) {
+            for (int i = 0; i < TaskGenerator.getBATCH_SIZE(); i++) {
+                long id = buffer.getLong();
+                int x = buffer.getShort() & 0xffff;
+                int y = buffer.getShort() & 0xffff;
+                taskList.add(new Task(id, x, y));
             }
+            buffer.clear();
         }
 
         @Override
         public void run() {
             for (Task task : taskList) {
-                String res = TaskUtil.executeTask(task.x, task.y);
+                byte[] res = Task.execute(task);
                 task.setRes(res);
                 taskQueue.offer(task);
             }
