@@ -12,11 +12,17 @@ import java.util.Date;
 public class Monitor {
     @Getter
     private static final int UDP_PORT = 25524;
+    private final Udp udp = new Udp(UDP_PORT);
+
+    /** Directory of the monitoring message record */
     private final String recordDir;
-    private final Udp udp = new Udp(UDP_PORT);;
+
+    /** The cumulative number of tasks for the three services */
     private long generatorTaskNum = 0L;
     private long executorTaskNum = 0L;
     private long collectorTaskNum = 0L;
+
+    /** Accumulated number of correct and incorrect task samples */
     private int correctTaskNum = 0;
     private int incorrectTaskNum = 0;
 
@@ -47,11 +53,11 @@ public class Monitor {
             // generator in the second minute.
             String pktString = udp.receiveString();
             logger.debug("Receive packet: {}", pktString);
-            record(pktString);
+            recordMsg(pktString);
         }
     }
 
-    private void record(@NotNull String pktString) {
+    private void recordMsg(@NotNull String pktString) {
         String[] split = pktString.split("@");
         int code = Integer.parseInt(split[0]);
         switch (code) {
@@ -69,7 +75,7 @@ public class Monitor {
         }
     }
 
-    private double tps(long taskNum, String time) {
+    private double tps(long taskNum, @NotNull String time) {
         int t = Integer.parseInt(time);
         if (t == 0) {
             return  0D;
@@ -88,8 +94,10 @@ public class Monitor {
         StringBuilder sb = new StringBuilder();
         sb.append(String.format("---------- %s minute ----------%n", time));
         sb.append(String.format("--- %s --%n", getTime()));
+
         sb.append(String.format("New task number: %d%n", newTaskNum));
         sb.append(String.format("Current TPS: %.2f%n", tps(newTaskNum)));
+
         generatorTaskNum += newTaskNum;
         sb.append(String.format("Total task number: %d%n", generatorTaskNum));
         sb.append(String.format("Average TPS: %.2f%n", tps(generatorTaskNum, time)));
@@ -108,8 +116,10 @@ public class Monitor {
         StringBuilder sb = new StringBuilder();
         sb.append(String.format("---------- %s minute ----------%n", time));
         sb.append(String.format("--- %s --%n", getTime()));
+
         sb.append(String.format("New task number: %d%n", newTaskNum));
         sb.append(String.format("Current TPS: %.2f%n", tps(newTaskNum)));
+
         executorTaskNum += newTaskNum;
         sb.append(String.format("Total task number: %d%n", executorTaskNum));
         sb.append(String.format("Average TPS: %.2f%n", tps(executorTaskNum, time)));
@@ -131,15 +141,17 @@ public class Monitor {
         sb.append(String.format("---------- %s minute ----------%n", time));
         sb.append(String.format("--- %s --%n", getTime()));
         sb.append(String.format("New task number: %d%n", newTaskNum));
+        sb.append(String.format("Current TPS: %.2f%n", tps(newTaskNum)));
         sb.append(String.format("Correct task number: %d%n", correct));
         sb.append(String.format("Incorrect task number: %d%n", incorrect));
-        sb.append(String.format("Current TPS: %.2f%n", tps(newTaskNum)));
+        sb.append(String.format("Current accuracy: %.2f%%%n", getAccuracy(correct, incorrect)));
+
         collectorTaskNum += newTaskNum;
         correctTaskNum += correct;
         incorrectTaskNum += incorrect;
         sb.append(String.format("Total task number: %d%n", collectorTaskNum));
-        sb.append(String.format("Average accuracy: %.2f%%%n", getAccuracy()));
         sb.append(String.format("Average tps: %.2f%n", tps(collectorTaskNum, time)));
+        sb.append(String.format("Average accuracy: %.2f%%%n", getAccuracy()));
         sb.append(System.lineSeparator());
 
         String path = recordDir + "collector";
@@ -147,6 +159,10 @@ public class Monitor {
     }
 
     private double getAccuracy() {
-        return correctTaskNum == 0 ? 0: (correctTaskNum * 100.0) / (correctTaskNum + incorrectTaskNum);
+        return getAccuracy(correctTaskNum, incorrectTaskNum);
+    }
+
+    private double getAccuracy(long correct, long incorrect) {
+        return correct == 0 ? 0: (correct * 100.0) / (correct + incorrect);
     }
 }
