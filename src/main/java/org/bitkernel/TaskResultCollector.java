@@ -19,17 +19,16 @@ public class TaskResultCollector {
     private final static int TCP_PORT = 25523;
     @Getter
     private final static int SAMPLE_NUM = 100;
+    private final static double SAMPLE_PCT = 0.005;
     private final static ThreadLocalRandom random = ThreadLocalRandom.current();
     private final String RECORD_DIR;
     private final TcpConn executorConn;
     private final Udp udp;
-    @Setter
-    private String monitorIp;
+    private final String monitorIp;
     private final ConcurrentLinkedQueue<String> sampleQueue = new ConcurrentLinkedQueue<>();
-    private final static double SAMPLE_PCT = 0.005;
     private final ScheduledExecutorService scheduled = Executors.newSingleThreadScheduledExecutor();
-    private int minutes = 0;
     private final LongAdder count = new LongAdder();
+    private int minutes = 0;
 
     public static void main(String[] args) {
         Scanner sc = new Scanner(System.in);

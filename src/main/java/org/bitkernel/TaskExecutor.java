@@ -28,7 +28,8 @@ public class TaskExecutor {
     private final String monitorIp;
     private final String collectorIp;
     private long completedTaskNum;
-    public ThreadPoolExecutor threadPool;
+    private ThreadPoolExecutor executeThreadPool;
+    private ScheduledExecutorService scheduledThreadPool;
     private int minutes;
 
     public static void main(String[] args) {
@@ -51,9 +52,10 @@ public class TaskExecutor {
         udp = new Udp();
         int processors = Runtime.getRuntime().availableProcessors();
 //        threadPool = (ThreadPoolExecutor) Executors.newFixedThreadPool(processors + 1);
-        threadPool = new ThreadPoolExecutor(processors + 1, processors + 1, 0,
+        executeThreadPool = new ThreadPoolExecutor(processors + 1, processors + 1, 0,
                 TimeUnit.SECONDS, new ArrayBlockingQueue<>(QUEUE_SIZE), new ThreadPoolExecutor.DiscardPolicy());
         logger.debug("The maximum number of threads is set to {}", processors + 1);
+        scheduledThreadPool = new ScheduledThreadPoolExecutor(3);
 
         try (ServerSocket server = new ServerSocket(TCP_PORT)) {
             logger.debug("Waiting for generator to connect");
@@ -70,10 +72,10 @@ public class TaskExecutor {
     }
 
     private void reportToMonitor() {
-        long curCompletedTaskCount = threadPool.getCompletedTaskCount() * TaskGenerator.getBATCH_SIZE();
+        long curCompletedTaskCount = executeThreadPool.getCompletedTaskCount() * TaskGenerator.getBATCH_SIZE();
         long newTaskCount = curCompletedTaskCount - completedTaskNum;
         String message = String.format("%d@%d@%d %d", 1, minutes, newTaskCount,
-                threadPool.getQueue().size() * TaskGenerator.getBATCH_SIZE());
+                executeThreadPool.getQueue().size() * TaskGenerator.getBATCH_SIZE());
         completedTaskNum = curCompletedTaskCount;
         udp.send(monitorIp, Monitor.getUDP_PORT(), message);
         minutes += 1;
@@ -81,10 +83,8 @@ public class TaskExecutor {
 
     private void start() {
         logger.debug("Start task executor service");
-        ScheduledExecutorService telemetry = Executors.newSingleThreadScheduledExecutor();
-        telemetry.scheduleAtFixedRate(this::reportToMonitor, 0, 1, TimeUnit.MINUTES);
-        ScheduledExecutorService flush = Executors.newSingleThreadScheduledExecutor();
-        flush.scheduleAtFixedRate(() -> {
+        scheduledThreadPool.scheduleAtFixedRate(this::reportToMonitor, 0, 1, TimeUnit.MINUTES);
+        scheduledThreadPool.scheduleAtFixedRate(() -> {
             try {
                 collectorConn.getBw().flush();
             } catch (IOException e) {
@@ -98,7 +98,7 @@ public class TaskExecutor {
                 if (taskListString == null) {
                     continue;
                 }
-                threadPool.submit(new BatchTask(taskListString));
+                executeThreadPool.submit(new BatchTask(taskListString));
             } catch (IOException e) {
                 logger.error(e.getMessage());
             }
