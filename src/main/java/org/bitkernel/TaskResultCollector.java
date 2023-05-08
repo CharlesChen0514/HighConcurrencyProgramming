@@ -59,6 +59,7 @@ public class TaskResultCollector {
         recordDir = System.getProperty("user.dir") + File.separator + "sample" + File.separator
                 + Monitor.getTime() + File.separator;
         logger.debug("The sampling records are stored in {}", recordDir);
+        logger.debug("Endian is {}", readBuffer.order());
 
         try (ServerSocket server = new ServerSocket(TCP_PORT)) {
             logger.debug("Waiting for executor to connect");
@@ -140,7 +141,7 @@ public class TaskResultCollector {
             byte[] res2 = Task.execute(task);
             String res1Str = DatatypeConverter.printHexBinary(task.getRes());
             String res2Str = DatatypeConverter.printHexBinary(res2);
-            verificationMap.put(task.toString(), res1Str.equals(res2Str));
+            verificationMap.put(task.detailed(), res1Str.equals(res2Str));
         }
         return verificationMap;
     }
@@ -156,14 +157,19 @@ public class TaskResultCollector {
 
         while (true) {
             try {
-                executorConn.getDin().read(readBuffer.array());
+                int read = executorConn.getDin().read(readBuffer.array());
+                if (read == -1) {
+                    continue;
+                }
                 if (isNeedSample()) {
                     long id = readBuffer.getLong();
                     int x = readBuffer.getShort() & 0xffff;
                     int y = readBuffer.getShort() & 0xffff;
                     byte[] res = new byte[32];
                     readBuffer.get(res);
-                    sampleQueue.add(new Task(id, x, y, res));
+                    Task task = new Task(id, x, y, res);
+                    sampleQueue.add(task);
+//                    logger.debug(task.detailed());
                 }
                 readBuffer.clear();
                 taskNum.increment();

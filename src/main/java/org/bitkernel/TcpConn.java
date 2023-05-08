@@ -13,11 +13,6 @@ public class TcpConn {
     @Getter
     private final Socket socket;
     @Getter
-    private BufferedReader br;
-    @Getter
-    private BufferedWriter bw;
-    private static final int BUFFER_SIZE = 8192 * 2;
-    @Getter
     private DataOutputStream dout;
     @Getter
     private DataInputStream din;
@@ -25,8 +20,6 @@ public class TcpConn {
     public TcpConn(@NotNull Socket socket) {
         this.socket = socket;
         try {
-            bw = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream()), BUFFER_SIZE);
-            br = new BufferedReader(new InputStreamReader(socket.getInputStream()), BUFFER_SIZE);
             dout = new DataOutputStream(socket.getOutputStream());
             din = new DataInputStream(socket.getInputStream());
         } catch (IOException e) {

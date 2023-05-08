@@ -38,6 +38,12 @@ public class Task {
     @Override
     public String toString() {
         StringBuilder sb = new StringBuilder();
+        sb.append(id).append(" ").append(x).append(" ").append(y);
+        return sb.toString();
+    }
+
+    public String detailed() {
+        StringBuilder sb = new StringBuilder();
         sb.append(id).append(" ").append(x).append(" ").append(y)
                 .append(" ").append(DatatypeConverter.printHexBinary(res));
         return sb.toString();
@@ -55,8 +61,10 @@ public class Task {
         } catch (NoSuchAlgorithmException e) {
             logger.error(e.getMessage());
         }
+        if (bytes.length != 32) {
+            logger.error("The byte size of SHA-256 [{}] is not match expected size [{}]", bytes.length, 32);
+        }
         return bytes;
-//        return DatatypeConverter.printHexBinary(bytes);
     }
 
     public static long myPow(long x, long n) {

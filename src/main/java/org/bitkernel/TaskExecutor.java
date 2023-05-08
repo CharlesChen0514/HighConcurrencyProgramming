@@ -49,6 +49,9 @@ public class TaskExecutor {
     private int minutes = 0;
 
     public static void main(String[] args) {
+        if (!TaskExecutor.test()) {
+            System.exit(-1);
+        }
         Scanner sc = new Scanner(System.in);
         System.out.print("Please input the monitor ip: ");
         String monitorIp = sc.next();
@@ -70,6 +73,7 @@ public class TaskExecutor {
         executeThreadPool = new ThreadPoolExecutor(processors + 1, processors + 1, 0,
                 TimeUnit.SECONDS, new ArrayBlockingQueue<>(QUEUE_SIZE), new ThreadPoolExecutor.DiscardPolicy());
         logger.debug("The maximum number of threads is set to {}", processors + 1);
+        logger.debug("Endian is {}", readBuffer.order());
 
         try (ServerSocket server = new ServerSocket(TCP_PORT)) {
             logger.debug("Waiting for generator to connect");
@@ -95,11 +99,26 @@ public class TaskExecutor {
         minutes += 1;
     }
 
+    private static boolean test() {
+        int bytes = Long.BYTES + Short.BYTES * 2 + Task.executeTask(0, 0).length;
+        if (bytes != TOTAL_TASK_LEN) {
+            logger.error("The task bytes size [{}] does not match the expected size [{}]", bytes, TOTAL_TASK_LEN);
+        } else {
+            logger.debug("The task bytes size match the expected size [{}]", TOTAL_TASK_LEN);
+        }
+        return bytes == TOTAL_TASK_LEN;
+    }
+
     private void transfer() {
         int c = 0;
         while (true) {
             if (taskQueue.isEmpty()) {
                 continue;
+            }
+            if (writeBuffer.position() + TOTAL_TASK_LEN > writeBuffer.limit()) {
+                logger.error("Exceeded buffer size limit: {}, {}",
+                        writeBuffer.position() + TOTAL_TASK_LEN, writeBuffer.limit());
+                break;
             }
             Task task = taskQueue.poll();
             writeBuffer.putLong(task.getId());

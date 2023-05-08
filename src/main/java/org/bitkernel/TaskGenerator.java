@@ -50,7 +50,7 @@ public class TaskGenerator {
         String executorIp = sc.next();
         System.out.print("Please input the target TPS: ");
         long targetTps = sc.nextLong();
-        logger.debug(String.format("Monitor ip: %s, executor ip:%s, target TPS: %d",
+        logger.debug(String.format("Monitor ip: %s, executor ip: %s, target TPS: %d",
                 monitorIp, executorIp, targetTps));
 
         TaskGenerator taskGenerator = new TaskGenerator(monitorIp, executorIp, targetTps);
@@ -68,7 +68,8 @@ public class TaskGenerator {
         this.batchSize = (int) Math.ceil(targetTps * 1.0 / 100);
         int bufferSize = batchSize * TASK_LEN;
         buffer = ByteBuffer.allocate(bufferSize);
-        logger.debug(String.format("Target TPM: %d, batch size: %d, buffer size:%d",
+        logger.debug("Endian is {}", buffer.order());
+        logger.debug(String.format("Target TPM: %d, batch size: %d, buffer size: %d",
                 targetTpm, batchSize, bufferSize));
 
         try {
@@ -94,6 +95,7 @@ public class TaskGenerator {
     private void telemetry() {
         logger.debug("Generate the {}th minute task takes {} ms", minutes, taskGenerateTime);
         taskGenerateTime = 0;
+        logger.debug("New task number: {}", newTaskNum);
         String monitorData = String.format("%d@%d@%s", 0, minutes, newTaskNum);
         newTaskNum = 0;
         minutes += 1;
@@ -101,16 +103,27 @@ public class TaskGenerator {
     }
 
     /**
-     * Transfer {@link #targetTpm} number of tasks to the executor
+     * Transfer {@link #batchSize} number of tasks to the executor
      */
     private void transferTask() {
         stopWatch.start(String.valueOf(System.currentTimeMillis()));
         for (int offset = 0; offset < batchSize; offset++) {
-            buffer.putLong(totalTaskNum + offset);
+            if (buffer.position() + TASK_LEN > buffer.limit()) {
+                logger.error("Exceeded buffer size limit: {}, {}",
+                        buffer.position() + TASK_LEN, buffer.limit());
+                break;
+            }
             int x = random.nextInt(RANGE);
             int y = random.nextInt(RANGE);
+            // Define zero as error status
+            if (x == 0 || y == 0) {
+                offset -= 1;
+                continue;
+            }
+            buffer.putLong(totalTaskNum + offset);
             buffer.putShort((short) (x & 0xffff));
             buffer.putShort((short) (y & 0xffff));
+//            logger.debug(String.format("%d %d %d", totalTaskNum + offset, x, y));
         }
         try {
             executorConn.getDout().write(buffer.array());
