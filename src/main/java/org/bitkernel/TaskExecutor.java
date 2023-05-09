@@ -48,6 +48,7 @@ public class TaskExecutor {
     private long completedTaskNum = 0;
 
     private int minutes = 0;
+    private final ThreadLocal<MessageDigest> threadLocal = ThreadLocal.withInitial(Task::getMessageDigestInstance);
 
     public static void main(String[] args) {
         Scanner sc = new Scanner(System.in);
@@ -148,10 +149,9 @@ public class TaskExecutor {
 
     class BatchTask implements Runnable {
         private final List<Task> taskList = new ArrayList<>();
-        private final MessageDigest md;
+        private MessageDigest md;
 
         public BatchTask(@NotNull ByteBuffer buffer) {
-            md = Task.getMessageDigestInstance();
             for (int i = 0; i < RUN_BATCH_SIZE; i++) {
                 long id = buffer.getLong();
                 int x = buffer.getShort() & 0xffff;
@@ -162,6 +162,8 @@ public class TaskExecutor {
 
         @Override
         public void run() {
+            md = threadLocal.get();
+//            logger.debug(Thread.currentThread().getName() + " "+ String.valueOf(System.identityHashCode(md)));
             for (Task task : taskList) {
                 byte[] res = Task.execute(md, task);
                 task.setRes(res);
