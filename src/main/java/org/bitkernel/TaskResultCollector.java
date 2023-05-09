@@ -42,6 +42,8 @@ public class TaskResultCollector {
     private int minutes = 0;
     private final ThreadMem threadMem = new ThreadMem(SAMPLE_NUM);
     private final Map<Task, byte[]> resMap = new LinkedHashMap<>();
+    private final byte[][] resBuffer = new byte[SAMPLE_NUM][32];
+    private int bufferId = 0;
 
     public static void main(String[] args) {
         Scanner sc = new Scanner(System.in);
@@ -85,9 +87,12 @@ public class TaskResultCollector {
         int rightCount = rightSampleNum(verificationMap);
         recordSampleRes(verificationMap, rightCount);
         telemetry(taskNum.longValue(), rightCount, SAMPLE_NUM - rightCount);
+
         taskNum.reset();
         minutes += 1;
         resMap.clear();
+        bufferId = 0;
+        threadMem.reset();
         logger.debug("Execute scheduled jobs down");
     }
 
@@ -147,7 +152,6 @@ public class TaskResultCollector {
             verificationMap.put(task, res1Str.equals(res2Str));
 //            logger.debug(task.toString() + " " + res1Str + " " + verificationMap.get(taskPair));
         }
-        threadMem.reset();
         return verificationMap;
     }
 
@@ -169,9 +173,11 @@ public class TaskResultCollector {
                         int x = readBuffer.getShort() & 0xffff;
                         int y = readBuffer.getShort() & 0xffff;
                         threadMem.put(id, x, y);
-                        byte[] res = new byte[32];
+
+                        byte[] res = resBuffer[bufferId];
                         readBuffer.get(res);
                         resMap.put(threadMem.getLast(), res);
+                        bufferId += 1;
                     } else {
                         readBuffer.position(readBuffer.position() + TaskExecutor.getTOTAL_TASK_LEN());
                     }
