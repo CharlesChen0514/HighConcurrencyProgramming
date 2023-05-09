@@ -170,7 +170,6 @@ public class TaskResultCollector {
                     byte[] res = new byte[32];
                     readBuffer.get(res);
                     resMap.put(threadMem.getLast(), res);
-//                    logger.debug(task.detailed());
                 }
                 readBuffer.clear();
                 taskNum.increment();

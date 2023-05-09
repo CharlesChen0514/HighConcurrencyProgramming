@@ -66,13 +66,9 @@ public class Task {
         buffer.putLong(pow);
         byte[] array = buffer.array();
         for (int i = 0; i < 10; i++) {
-            try {
-                md.digest(array, 0, array.length);
-            } catch (DigestException e) {
-                logger.error(e.getMessage());
-            }
-            md.reset();
+            array = md.digest(array);
         }
+        md.reset();
         return array;
     }
 

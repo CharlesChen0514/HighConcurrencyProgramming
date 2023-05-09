@@ -4,6 +4,7 @@ import com.sun.istack.internal.NotNull;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
+import javax.xml.bind.DatatypeConverter;
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
@@ -105,6 +106,7 @@ public class TaskExecutor {
         writeBuffer.putShort((short) (task.getX() & 0xffff));
         writeBuffer.putShort((short) (task.getY() & 0xffff));
         writeBuffer.put(res);
+//        logger.debug(task.toString() + " " + DatatypeConverter.printHexBinary(res));
 
         if (writeBuffer.position() == writeBuffer.limit()) {
             try {
