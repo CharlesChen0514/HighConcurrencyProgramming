@@ -8,10 +8,9 @@ import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.nio.ByteBuffer;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Scanner;
 import java.util.concurrent.*;
+import java.util.concurrent.atomic.LongAdder;
 
 @Slf4j
 public class TaskExecutor {
@@ -23,6 +22,7 @@ public class TaskExecutor {
     private static final int TOTAL_TASK_LEN = TaskGenerator.getTASK_LEN() + 32;
 
     /** The number of tasks a thread needs to run at one time */
+    @Getter
     private static final int RUN_BATCH_SIZE = 1000;
 
     /** Queue size in thread pool */
@@ -31,7 +31,6 @@ public class TaskExecutor {
 
     private final Udp udp = new Udp();
 
-    private final ByteBuffer readBuffer = ByteBuffer.allocate(RUN_BATCH_SIZE * TaskGenerator.getTASK_LEN());
     private final ByteBuffer writeBuffer = ByteBuffer.allocate(RUN_BATCH_SIZE * TOTAL_TASK_LEN);
 
     private final String monitorIp;
@@ -41,10 +40,10 @@ public class TaskExecutor {
     private TcpConn collectorConn;
 
     /** Number of tasks completed */
-    private long completedTaskNum = 0;
+    private LongAdder completedTaskNum = new LongAdder();
 
     private int minutes = 0;
-    private final ThreadLocal<ThreadMem> threadLocal = ThreadLocal.withInitial(ThreadMem::new);
+    private final ThreadLocal<ThreadMem> threadLocal = ThreadLocal.withInitial(() -> new ThreadMem(RUN_BATCH_SIZE));
 
     public static void main(String[] args) {
         Scanner sc = new Scanner(System.in);
@@ -85,11 +84,9 @@ public class TaskExecutor {
     }
 
     private void reportToMonitor() {
-        long curCompletedTaskCount = executeThreadPool.getCompletedTaskCount() * RUN_BATCH_SIZE;
-        long newTaskCount = curCompletedTaskCount - completedTaskNum;
-        String message = String.format("%d@%d@%d %d", 1, minutes, newTaskCount,
+        String message = String.format("%d@%d@%d %d", 1, minutes, completedTaskNum.longValue(),
                 executeThreadPool.getQueue().size() * RUN_BATCH_SIZE);
-        completedTaskNum = curCompletedTaskCount;
+        completedTaskNum.reset();
         udp.send(monitorIp, Monitor.getUDP_PORT(), message);
         minutes += 1;
     }
@@ -98,16 +95,8 @@ public class TaskExecutor {
         logger.debug("Start task executor service");
         ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
         scheduler.scheduleAtFixedRate(this::reportToMonitor, 0, 1, TimeUnit.MINUTES);
-
-        while (true) {
-            try {
-                generatorConn.getDin().readFully(readBuffer.array());
-                BatchTask batchTask = new BatchTask(readBuffer);
-                readBuffer.clear();
-                executeThreadPool.submit(batchTask);
-            } catch (IOException e) {
-                logger.error(e.getMessage());
-            }
+        for (int i = 0; i < executeThreadPool.getMaximumPoolSize(); i++) {
+            executeThreadPool.execute(new Executor());
         }
     }
 
@@ -128,27 +117,40 @@ public class TaskExecutor {
         }
     }
 
-    class BatchTask implements Runnable {
+    class Executor implements Runnable {
         private ThreadMem threadMem;
-        private final List<Task> taskList = new ArrayList<>();
-
-        public BatchTask(@NotNull ByteBuffer buffer) {
-            for (int i = 0; i < RUN_BATCH_SIZE; i++) {
-                long id = buffer.getLong();
-                int x = buffer.getShort() & 0xffff;
-                int y = buffer.getShort() & 0xffff;
-                taskList.add(new Task(id, x, y));
-            }
-        }
 
         @Override
         public void run() {
             threadMem = threadLocal.get();
-            for (Task task : taskList) {
-                byte[] res = Task.execute(threadMem.getMd(), threadMem.getBuffer(), task);
-                writeTask(task, res);
-                threadMem.getBuffer().clear();
+            while (true) {
+                runBatch();
             }
+        }
+
+        private void runBatch() {
+            ByteBuffer readBuffer = threadMem.getReadBuffer();
+            try {
+                generatorConn.getDin().readFully(readBuffer.array());
+            } catch (IOException e) {
+                logger.error(e.getMessage());
+            }
+
+            for (int i = 0; i < RUN_BATCH_SIZE; i++) {
+                long id = readBuffer.getLong();
+                int x = readBuffer.getShort() & 0xffff;
+                int y = readBuffer.getShort() & 0xffff;
+                threadMem.put(id, x, y);
+            }
+
+            for (Task task : threadMem.getTasks()) {
+                byte[] res = Task.execute(threadMem.getMd(), threadMem.getSha256Buf(), task);
+                writeTask(task, res);
+                threadMem.getSha256Buf().clear();
+            }
+            readBuffer.clear();
+            threadMem.reset();
+            completedTaskNum.add(RUN_BATCH_SIZE);
         }
     }
 }

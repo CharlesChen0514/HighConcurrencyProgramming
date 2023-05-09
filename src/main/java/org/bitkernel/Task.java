@@ -8,6 +8,7 @@ import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 
 import java.nio.ByteBuffer;
+import java.security.DigestException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 
@@ -37,6 +38,16 @@ public class Task {
         return sb.toString();
     }
 
+    @Override
+    public int hashCode() {
+        return toString().hashCode();
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        return o instanceof Task && toString().equals(o.toString());
+    }
+
     public static MessageDigest getMessageDigestInstance() {
         MessageDigest md = null;
         try {
@@ -55,7 +66,11 @@ public class Task {
         buffer.putLong(pow);
         byte[] array = buffer.array();
         for (int i = 0; i < 10; i++) {
-            array = md.digest(array);
+            try {
+                md.digest(array, 0, array.length);
+            } catch (DigestException e) {
+                logger.error(e.getMessage());
+            }
             md.reset();
         }
         return array;
