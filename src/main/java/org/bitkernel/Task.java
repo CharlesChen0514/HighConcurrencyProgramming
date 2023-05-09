@@ -8,7 +8,6 @@ import lombok.extern.slf4j.Slf4j;
 
 import javax.xml.bind.DatatypeConverter;
 import java.nio.ByteBuffer;
-import java.security.DigestException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 
@@ -65,15 +64,12 @@ public class Task {
         long pow = myPow(x, y);
         ByteBuffer buffer = ByteBuffer.allocate(32);
         buffer.putLong(pow);
-        try {
-            for (int i = 0; i < 10; i++) {
-                md.digest(buffer.array(), 0, buffer.array().length);
-            }
-            md.reset();
-        } catch (DigestException e) {
-            logger.error(e.getMessage());
+        byte[] array = buffer.array();
+        for (int i = 0; i < 10; i++) {
+            array = md.digest(array);
         }
-        return buffer.array();
+        md.reset();
+        return array;
     }
 
     public static long myPow(long x, long n) {
