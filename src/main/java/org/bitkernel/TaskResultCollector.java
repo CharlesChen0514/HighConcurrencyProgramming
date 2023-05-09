@@ -35,7 +35,7 @@ public class TaskResultCollector {
     private final Udp udp = new Udp();
     private final String monitorIp;
     private final TcpConn executorConn;
-    private final ByteBuffer readBuffer = ByteBuffer.allocate(TaskExecutor.getTOTAL_TASK_LEN());
+    private final ByteBuffer readBuffer = ByteBuffer.allocate(TaskExecutor.getRUN_BATCH_SIZE() * TaskExecutor.getTOTAL_TASK_LEN());
 
     /** Number of tasks received in one minute */
     private final LongAdder taskNum = new LongAdder();
@@ -162,17 +162,21 @@ public class TaskResultCollector {
         while (true) {
             try {
                 executorConn.getDin().readFully(readBuffer.array());
-                if (isNeedSample()) {
-                    long id = readBuffer.getLong();
-                    int x = readBuffer.getShort() & 0xffff;
-                    int y = readBuffer.getShort() & 0xffff;
-                    threadMem.put(id, x, y);
-                    byte[] res = new byte[32];
-                    readBuffer.get(res);
-                    resMap.put(threadMem.getLast(), res);
+                while (readBuffer.position() < readBuffer.limit()) {
+                    if (isNeedSample()) {
+                        long id = readBuffer.getLong();
+                        int x = readBuffer.getShort() & 0xffff;
+                        int y = readBuffer.getShort() & 0xffff;
+                        threadMem.put(id, x, y);
+                        byte[] res = new byte[32];
+                        readBuffer.get(res);
+                        resMap.put(threadMem.getLast(), res);
+                    } else {
+                        readBuffer.position(readBuffer.position() + TaskExecutor.getTOTAL_TASK_LEN());
+                    }
                 }
                 readBuffer.clear();
-                taskNum.increment();
+                taskNum.add(TaskExecutor.getRUN_BATCH_SIZE());
             } catch (IOException e) {
                 logger.error(e.getMessage());
             }

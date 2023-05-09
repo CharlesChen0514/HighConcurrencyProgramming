@@ -27,7 +27,8 @@ public class Task {
     private int y;
 
     @NotNull
-    public static byte[] execute(@NotNull MessageDigest md, @NotNull ByteBuffer buffer, @NotNull Task task) {
+    public static byte[] execute(@NotNull MessageDigest md, @NotNull ByteBuffer buffer,
+                                 @NotNull Task task) {
         return Task.executeTask(md, buffer, task.x, task.y);
     }
 
