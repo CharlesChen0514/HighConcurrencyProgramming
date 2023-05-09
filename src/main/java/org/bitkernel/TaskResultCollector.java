@@ -1,6 +1,7 @@
 package org.bitkernel;
 
 import com.sun.istack.internal.NotNull;
+import javafx.util.Pair;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
@@ -10,7 +11,6 @@ import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.nio.ByteBuffer;
-import java.security.MessageDigest;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Scanner;
@@ -32,7 +32,7 @@ public class TaskResultCollector {
     /** Directory of the sample verification result record */
     private final String recordDir;
 
-    private final ConcurrentLinkedQueue<Task> sampleQueue = new ConcurrentLinkedQueue<>();
+    private final ConcurrentLinkedQueue<Pair<Task, byte[]>> sampleQueue = new ConcurrentLinkedQueue<>();
 
     private final Udp udp = new Udp();
     private final String monitorIp;
@@ -42,7 +42,7 @@ public class TaskResultCollector {
     /** Number of tasks received in one minute */
     private final LongAdder taskNum = new LongAdder();
     private int minutes = 0;
-    private static final MessageDigest md = Task.getMessageDigestInstance();
+    private final ThreadMem threadMem = new ThreadMem();
 
     public static void main(String[] args) {
         Scanner sc = new Scanner(System.in);
@@ -82,7 +82,7 @@ public class TaskResultCollector {
             return;
         }
 
-        Map<String, Boolean> verificationMap = sampleVerification();
+        Map<Pair<Task, byte[]>, Boolean> verificationMap = sampleVerification();
         int rightCount = rightSampleNum(verificationMap);
         recordSampleRes(verificationMap, rightCount);
         telemetry(taskNum.longValue(), rightCount, SAMPLE_NUM - rightCount);
@@ -91,9 +91,9 @@ public class TaskResultCollector {
         logger.debug("Execute scheduled jobs down");
     }
 
-    private int rightSampleNum(@NotNull Map<String, Boolean> verificationMap) {
+    private int rightSampleNum(@NotNull Map<Pair<Task, byte[]>, Boolean> verificationMap) {
         int rightCount = 0;
-        for (Map.Entry<String, Boolean> entry : verificationMap.entrySet()) {
+        for (Map.Entry<Pair<Task, byte[]>, Boolean> entry : verificationMap.entrySet()) {
             if (entry.getValue()) {
                 rightCount++;
             }
@@ -108,14 +108,17 @@ public class TaskResultCollector {
         udp.send(monitorIp, Monitor.getUDP_PORT(), monitorData);
     }
 
-    private void recordSampleRes(@NotNull Map<String, Boolean> resMap, int rightCount) {
+    private void recordSampleRes(@NotNull Map<Pair<Task, byte[]>, Boolean> resMap, int rightCount) {
         StringBuilder rightSb = new StringBuilder();
         StringBuilder errorSb = new StringBuilder();
-        for (Map.Entry<String, Boolean> entry : resMap.entrySet()) {
+        for (Map.Entry<Pair<Task, byte[]>, Boolean> entry : resMap.entrySet()) {
+            Pair<Task, byte[]> pair = entry.getKey();
+            Task task = pair.getKey();
+            byte[] res = pair.getValue();
             if (entry.getValue()) {
-                rightSb.append(entry.getKey()).append(System.lineSeparator());
+                rightSb.append(task).append(" ").append(DatatypeConverter.printHexBinary(res)).append(System.lineSeparator());
             } else {
-                errorSb.append(entry.getKey()).append(System.lineSeparator());
+                errorSb.append(task).append(" ").append(DatatypeConverter.printHexBinary(res)).append(System.lineSeparator());
             }
         }
 
@@ -129,8 +132,8 @@ public class TaskResultCollector {
     }
 
     @NotNull
-    private Map<String, Boolean> sampleVerification() {
-        Map<String, Boolean> verificationMap = new HashMap<>();
+    private Map<Pair<Task, byte[]>, Boolean> sampleVerification() {
+        Map<Pair<Task, byte[]>, Boolean> verificationMap = new HashMap<>();
         if (sampleQueue.isEmpty()) {
             logger.error("Sample queue is empty, something error, please check.");
             return verificationMap;
@@ -139,11 +142,15 @@ public class TaskResultCollector {
         Object[] array = sampleQueue.toArray();
         sampleQueue.clear();
         for (Object taskObj : array) {
-            Task task = (Task) taskObj;
-            byte[] res2 = Task.execute(md, task);
-            String res1Str = DatatypeConverter.printHexBinary(task.getRes());
+            Pair<Task, byte[]> taskPair = (Pair<Task, byte[]>) taskObj;
+            Task task = taskPair.getKey();
+            byte[] res1 = taskPair.getValue();
+            byte[] res2 = Task.execute(threadMem.getMd(), threadMem.getBuffer(), task);
+            threadMem.getBuffer().clear();
+            String res1Str = DatatypeConverter.printHexBinary(res1);
             String res2Str = DatatypeConverter.printHexBinary(res2);
-            verificationMap.put(task.detailed(), res1Str.equals(res2Str));
+            verificationMap.put(taskPair, res1Str.equals(res2Str));
+//            logger.debug(task.toString() + " " + res1Str + " " + verificationMap.get(taskPair));
         }
         return verificationMap;
     }
@@ -166,8 +173,8 @@ public class TaskResultCollector {
                     int y = readBuffer.getShort() & 0xffff;
                     byte[] res = new byte[32];
                     readBuffer.get(res);
-                    Task task = new Task(id, x, y, res);
-                    sampleQueue.add(task);
+                    Task task = new Task(id, x, y);
+                    sampleQueue.add(new Pair<>(task, res));
 //                    logger.debug(task.detailed());
                 }
                 readBuffer.clear();

@@ -3,49 +3,37 @@ package org.bitkernel;
 import com.sun.istack.internal.NotNull;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 
-import javax.xml.bind.DatatypeConverter;
 import java.nio.ByteBuffer;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 
 @Slf4j
 @AllArgsConstructor
+@NoArgsConstructor
 public class Task {
     @Getter
-    private final long id;
-    @Getter
-    private final int x;
-    @Getter
-    private final int y;
+    @Setter
+    private long id;
     @Getter
     @Setter
-    private byte[] res;
-
-    public Task(long id, int x, int y) {
-        this.id = id;
-        this.x = x;
-        this.y = y;
-    }
+    private int x;
+    @Getter
+    @Setter
+    private int y;
 
     @NotNull
-    public static byte[] execute(@NotNull MessageDigest md, @NotNull Task task) {
-        return Task.executeTask(md, task.x, task.y);
+    public static byte[] execute(@NotNull MessageDigest md, @NotNull ByteBuffer buffer, @NotNull Task task) {
+        return Task.executeTask(md, buffer, task.x, task.y);
     }
 
     @Override
     public String toString() {
         StringBuilder sb = new StringBuilder();
         sb.append(id).append(" ").append(x).append(" ").append(y);
-        return sb.toString();
-    }
-
-    public String detailed() {
-        StringBuilder sb = new StringBuilder();
-        sb.append(id).append(" ").append(x).append(" ").append(y)
-                .append(" ").append(DatatypeConverter.printHexBinary(res));
         return sb.toString();
     }
 
@@ -60,15 +48,16 @@ public class Task {
     }
 
     @NotNull
-    public static byte[] executeTask(@NotNull MessageDigest md, int x, int y) {
+    public static byte[] executeTask(@NotNull MessageDigest md,
+                                     @NotNull ByteBuffer buffer,
+                                     int x, int y) {
         long pow = myPow(x, y);
-        ByteBuffer buffer = ByteBuffer.allocate(32);
         buffer.putLong(pow);
         byte[] array = buffer.array();
         for (int i = 0; i < 10; i++) {
             array = md.digest(array);
+            md.reset();
         }
-        md.reset();
         return array;
     }
 

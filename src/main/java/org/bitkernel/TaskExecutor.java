@@ -8,7 +8,6 @@ import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.nio.ByteBuffer;
-import java.security.MessageDigest;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Scanner;
@@ -32,9 +31,6 @@ public class TaskExecutor {
 
     private final Udp udp = new Udp();
 
-    /** Cache queue for tasks, added to the queue when task execution is complete */
-    private final ConcurrentLinkedQueue<Task> taskQueue = new ConcurrentLinkedQueue<>();
-
     private final ByteBuffer readBuffer = ByteBuffer.allocate(RUN_BATCH_SIZE * TaskGenerator.getTASK_LEN());
     private final ByteBuffer writeBuffer = ByteBuffer.allocate(RUN_BATCH_SIZE * TOTAL_TASK_LEN);
 
@@ -48,7 +44,7 @@ public class TaskExecutor {
     private long completedTaskNum = 0;
 
     private int minutes = 0;
-    private final ThreadLocal<MessageDigest> threadLocal = ThreadLocal.withInitial(Task::getMessageDigestInstance);
+    private final ThreadLocal<ThreadMem> threadLocal = ThreadLocal.withInitial(ThreadMem::new);
 
     public static void main(String[] args) {
         Scanner sc = new Scanner(System.in);
@@ -72,7 +68,7 @@ public class TaskExecutor {
         executeThreadPool = new ThreadPoolExecutor(processors + 1, processors + 1, 0,
                 TimeUnit.SECONDS, new ArrayBlockingQueue<>(QUEUE_SIZE), new ThreadPoolExecutor.DiscardPolicy());
         logger.debug("The maximum number of threads is set to {}", processors + 1);
-        logger.debug("Endian is {}", readBuffer.order());
+//        logger.debug("Endian is {}", readBuffer.order());
 
         try (ServerSocket server = new ServerSocket(TCP_PORT)) {
             logger.debug("Waiting for generator to connect");
@@ -98,42 +94,10 @@ public class TaskExecutor {
         minutes += 1;
     }
 
-    private void transfer() {
-        int c = 0;
-        while (true) {
-            if (taskQueue.isEmpty()) {
-                continue;
-            }
-            if (writeBuffer.position() + TOTAL_TASK_LEN > writeBuffer.limit()) {
-                logger.error("Exceeded buffer size limit: {}, {}",
-                        writeBuffer.position() + TOTAL_TASK_LEN, writeBuffer.limit());
-                break;
-            }
-            Task task = taskQueue.poll();
-            writeBuffer.putLong(task.getId());
-            writeBuffer.putShort((short) (task.getX() & 0xffff));
-            writeBuffer.putShort((short) (task.getY() & 0xffff));
-            writeBuffer.put(task.getRes());
-
-            c += 1;
-            if (c == RUN_BATCH_SIZE) {
-                try {
-                    collectorConn.getDout().write(writeBuffer.array());
-                    collectorConn.getDout().flush();
-                } catch (IOException e) {
-                    logger.error(e.getMessage());
-                }
-                c = 0;
-                writeBuffer.clear();
-            }
-        }
-    }
-
     private void start() {
         logger.debug("Start task executor service");
         ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
         scheduler.scheduleAtFixedRate(this::reportToMonitor, 0, 1, TimeUnit.MINUTES);
-        executeThreadPool.submit(this::transfer);
 
         while (true) {
             try {
@@ -147,9 +111,26 @@ public class TaskExecutor {
         }
     }
 
+    private synchronized void writeTask(@NotNull Task task, @NotNull byte[] res) {
+        writeBuffer.putLong(task.getId());
+        writeBuffer.putShort((short) (task.getX() & 0xffff));
+        writeBuffer.putShort((short) (task.getY() & 0xffff));
+        writeBuffer.put(res);
+
+        if (writeBuffer.position() == writeBuffer.limit()) {
+            try {
+                collectorConn.getDout().write(writeBuffer.array());
+                collectorConn.getDout().flush();
+            } catch (IOException e) {
+                logger.error(e.getMessage());
+            }
+            writeBuffer.clear();
+        }
+    }
+
     class BatchTask implements Runnable {
+        private ThreadMem threadMem;
         private final List<Task> taskList = new ArrayList<>();
-        private MessageDigest md;
 
         public BatchTask(@NotNull ByteBuffer buffer) {
             for (int i = 0; i < RUN_BATCH_SIZE; i++) {
@@ -162,12 +143,11 @@ public class TaskExecutor {
 
         @Override
         public void run() {
-            md = threadLocal.get();
-//            logger.debug(Thread.currentThread().getName() + " "+ String.valueOf(System.identityHashCode(md)));
+            threadMem = threadLocal.get();
             for (Task task : taskList) {
-                byte[] res = Task.execute(md, task);
-                task.setRes(res);
-                taskQueue.offer(task);
+                byte[] res = Task.execute(threadMem.getMd(), threadMem.getBuffer(), task);
+                writeTask(task, res);
+                threadMem.getBuffer().clear();
             }
         }
     }
