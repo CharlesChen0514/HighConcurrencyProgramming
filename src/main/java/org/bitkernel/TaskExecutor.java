@@ -4,7 +4,6 @@ import com.sun.istack.internal.NotNull;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
-import javax.xml.bind.DatatypeConverter;
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
@@ -31,8 +30,6 @@ public class TaskExecutor {
     private final ThreadPoolExecutor executeThreadPool;
 
     private final Udp udp = new Udp();
-
-    private final ByteBuffer writeBuffer = ByteBuffer.allocate(RUN_BATCH_SIZE * TOTAL_TASK_LEN);
 
     private final String monitorIp;
     private final String collectorIp;
@@ -101,24 +98,6 @@ public class TaskExecutor {
         }
     }
 
-    private synchronized void writeTask(@NotNull Task task, @NotNull byte[] res) {
-        writeBuffer.putLong(task.getId());
-        writeBuffer.putShort((short) (task.getX() & 0xffff));
-        writeBuffer.putShort((short) (task.getY() & 0xffff));
-        writeBuffer.put(res);
-//        logger.debug(task.toString() + " " + DatatypeConverter.printHexBinary(res));
-
-        if (writeBuffer.position() == writeBuffer.limit()) {
-            try {
-                collectorConn.getDout().write(writeBuffer.array());
-                collectorConn.getDout().flush();
-            } catch (IOException e) {
-                logger.error(e.getMessage());
-            }
-            writeBuffer.clear();
-        }
-    }
-
     class Executor implements Runnable {
         private ThreadMem threadMem;
 
@@ -145,11 +124,24 @@ public class TaskExecutor {
                 threadMem.put(id, x, y);
             }
 
+            ByteBuffer writeBuffer = threadMem.getWriteBuffer();
             for (Task task : threadMem.getTasks()) {
                 byte[] res = Task.execute(threadMem.getMd(), threadMem.getSha256Buf(), task);
-                writeTask(task, res);
+                writeBuffer.putLong(task.getId());
+                writeBuffer.putShort((short) (task.getX() & 0xffff));
+                writeBuffer.putShort((short) (task.getY() & 0xffff));
+                writeBuffer.put(res);
                 threadMem.getSha256Buf().clear();
             }
+
+            try {
+                collectorConn.getDout().write(writeBuffer.array());
+                collectorConn.getDout().flush();
+            } catch (IOException e) {
+                logger.error(e.getMessage());
+            }
+
+            writeBuffer.clear();
             readBuffer.clear();
             threadMem.reset();
             completedTaskNum.add(RUN_BATCH_SIZE);

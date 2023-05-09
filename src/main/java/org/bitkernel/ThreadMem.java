@@ -16,6 +16,8 @@ public class ThreadMem {
     private final Task[] tasks;
     @Getter
     private final ByteBuffer readBuffer;
+    @Getter
+    private final ByteBuffer writeBuffer;
     private final int capacity;
     private int idx;
 
@@ -26,6 +28,7 @@ public class ThreadMem {
             tasks[i] = new Task();
         }
         readBuffer = ByteBuffer.allocate(capacity * TaskGenerator.getTASK_LEN());
+        writeBuffer = ByteBuffer.allocate(capacity * TaskExecutor.getTOTAL_TASK_LEN());
     }
 
     public void put(long id, int x, int y) {
