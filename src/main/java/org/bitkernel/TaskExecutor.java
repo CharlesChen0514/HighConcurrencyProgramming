@@ -137,7 +137,7 @@ public class TaskExecutor {
 
         while (true) {
             try {
-                generatorConn.getDin().read(readBuffer.array());
+                generatorConn.getDin().readFully(readBuffer.array());
                 BatchTask batchTask = new BatchTask(readBuffer);
                 readBuffer.clear();
                 executeThreadPool.submit(batchTask);

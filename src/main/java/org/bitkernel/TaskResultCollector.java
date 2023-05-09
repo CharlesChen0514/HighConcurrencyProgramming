@@ -159,10 +159,7 @@ public class TaskResultCollector {
 
         while (true) {
             try {
-                int read = executorConn.getDin().read(readBuffer.array());
-                if (read == -1) {
-                    continue;
-                }
+                executorConn.getDin().readFully(readBuffer.array());
                 if (isNeedSample()) {
                     long id = readBuffer.getLong();
                     int x = readBuffer.getShort() & 0xffff;
