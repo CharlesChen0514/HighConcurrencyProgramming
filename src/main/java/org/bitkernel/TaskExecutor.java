@@ -24,7 +24,7 @@ public class TaskExecutor {
 
     /** The number of tasks a thread needs to run at one time */
     @Getter
-    private static final int RUN_BATCH_SIZE = 1000;
+    private static final int RUN_BATCH_SIZE = 2000;
 
     /** Queue size in thread pool */
     private static final int QUEUE_SIZE = 800 * 10000;
