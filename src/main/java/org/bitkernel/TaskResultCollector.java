@@ -87,6 +87,7 @@ public class TaskResultCollector {
         telemetry(taskNum.longValue(), rightCount, SAMPLE_NUM - rightCount);
         taskNum.reset();
         minutes += 1;
+        resMap.clear();
         logger.debug("Execute scheduled jobs down");
     }
 
