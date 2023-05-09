@@ -7,7 +7,8 @@ import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 
 import javax.xml.bind.DatatypeConverter;
-import java.nio.charset.StandardCharsets;
+import java.nio.ByteBuffer;
+import java.security.DigestException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 
@@ -52,19 +53,17 @@ public class Task {
     @NotNull
     public static byte[] executeTask(int x, int y) {
         long pow = myPow(x, y);
-        byte[] bytes = String.valueOf(pow).getBytes(StandardCharsets.UTF_8);
+        ByteBuffer buffer = ByteBuffer.allocate(32);
+        buffer.putLong(pow);
         try {
             MessageDigest md = MessageDigest.getInstance("SHA-256");
             for (int i = 0; i < 10; i++) {
-                bytes = md.digest(bytes);
+                md.digest(buffer.array(), 0, buffer.array().length);
             }
-        } catch (NoSuchAlgorithmException e) {
+        } catch (NoSuchAlgorithmException | DigestException e) {
             logger.error(e.getMessage());
         }
-        if (bytes.length != 32) {
-            logger.error("The byte size of SHA-256 [{}] is not match expected size [{}]", bytes.length, 32);
-        }
-        return bytes;
+        return buffer.array();
     }
 
     public static long myPow(long x, long n) {
@@ -79,6 +78,5 @@ public class Task {
     }
 
     public static void main(String[] args) {
-        System.out.println(Long.BYTES);
     }
 }
