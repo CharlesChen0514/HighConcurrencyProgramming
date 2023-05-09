@@ -10,6 +10,7 @@ import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.nio.ByteBuffer;
+import java.security.MessageDigest;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Scanner;
@@ -41,6 +42,7 @@ public class TaskResultCollector {
     /** Number of tasks received in one minute */
     private final LongAdder taskNum = new LongAdder();
     private int minutes = 0;
+    private static final MessageDigest md = Task.getMessageDigestInstance();
 
     public static void main(String[] args) {
         Scanner sc = new Scanner(System.in);
@@ -138,7 +140,7 @@ public class TaskResultCollector {
         sampleQueue.clear();
         for (Object taskObj : array) {
             Task task = (Task) taskObj;
-            byte[] res2 = Task.execute(task);
+            byte[] res2 = Task.execute(md, task);
             String res1Str = DatatypeConverter.printHexBinary(task.getRes());
             String res2Str = DatatypeConverter.printHexBinary(res2);
             verificationMap.put(task.detailed(), res1Str.equals(res2Str));

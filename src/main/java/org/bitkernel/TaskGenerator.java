@@ -85,8 +85,11 @@ public class TaskGenerator {
         logger.debug("Start task generator");
         ScheduledExecutorService telemetry = Executors.newSingleThreadScheduledExecutor();
         telemetry.scheduleAtFixedRate(this::telemetry, 0, 1, TimeUnit.MINUTES);
+        logger.debug("Start scheduled thread: telemetry");
+
         ScheduledExecutorService transferTask = Executors.newSingleThreadScheduledExecutor();
         transferTask.scheduleAtFixedRate(this::transferTask, 0, 10, TimeUnit.MILLISECONDS);
+        logger.debug("Start scheduled thread: transferTask");
     }
 
     /**
@@ -113,13 +116,8 @@ public class TaskGenerator {
                         buffer.position() + TASK_LEN, buffer.limit());
                 break;
             }
-            int x = random.nextInt(RANGE);
-            int y = random.nextInt(RANGE);
-            // Define zero as error status
-            if (x == 0 || y == 0) {
-                offset -= 1;
-                continue;
-            }
+            int x = random.nextInt(RANGE) + 1;
+            int y = random.nextInt(RANGE) + 1;
             buffer.putLong(totalTaskNum + offset);
             buffer.putShort((short) (x & 0xffff));
             buffer.putShort((short) (y & 0xffff));

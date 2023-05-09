@@ -8,6 +8,7 @@ import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.nio.ByteBuffer;
+import java.security.MessageDigest;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Scanner;
@@ -49,9 +50,6 @@ public class TaskExecutor {
     private int minutes = 0;
 
     public static void main(String[] args) {
-        if (!TaskExecutor.test()) {
-            System.exit(-1);
-        }
         Scanner sc = new Scanner(System.in);
         System.out.print("Please input the monitor ip: ");
         String monitorIp = sc.next();
@@ -97,16 +95,6 @@ public class TaskExecutor {
         completedTaskNum = curCompletedTaskCount;
         udp.send(monitorIp, Monitor.getUDP_PORT(), message);
         minutes += 1;
-    }
-
-    private static boolean test() {
-        int bytes = Long.BYTES + Short.BYTES * 2 + Task.executeTask(0, 0).length;
-        if (bytes != TOTAL_TASK_LEN) {
-            logger.error("The task bytes size [{}] does not match the expected size [{}]", bytes, TOTAL_TASK_LEN);
-        } else {
-            logger.debug("The task bytes size match the expected size [{}]", TOTAL_TASK_LEN);
-        }
-        return bytes == TOTAL_TASK_LEN;
     }
 
     private void transfer() {
@@ -160,8 +148,10 @@ public class TaskExecutor {
 
     class BatchTask implements Runnable {
         private final List<Task> taskList = new ArrayList<>();
+        private final MessageDigest md;
 
         public BatchTask(@NotNull ByteBuffer buffer) {
+            md = Task.getMessageDigestInstance();
             for (int i = 0; i < RUN_BATCH_SIZE; i++) {
                 long id = buffer.getLong();
                 int x = buffer.getShort() & 0xffff;
@@ -173,7 +163,7 @@ public class TaskExecutor {
         @Override
         public void run() {
             for (Task task : taskList) {
-                byte[] res = Task.execute(task);
+                byte[] res = Task.execute(md, task);
                 task.setRes(res);
                 taskQueue.offer(task);
             }

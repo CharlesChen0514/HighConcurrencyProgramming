@@ -32,8 +32,8 @@ public class Task {
     }
 
     @NotNull
-    public static byte[] execute(@NotNull Task task) {
-        return Task.executeTask(task.x, task.y);
+    public static byte[] execute(@NotNull MessageDigest md, @NotNull Task task) {
+        return Task.executeTask(md, task.x, task.y);
     }
 
     @Override
@@ -50,17 +50,27 @@ public class Task {
         return sb.toString();
     }
 
+    public static MessageDigest getMessageDigestInstance() {
+        MessageDigest md = null;
+        try {
+            md = MessageDigest.getInstance("SHA-256");
+        } catch (NoSuchAlgorithmException e) {
+            logger.error(e.getMessage());
+        }
+        return md;
+    }
+
     @NotNull
-    public static byte[] executeTask(int x, int y) {
+    public static byte[] executeTask(@NotNull MessageDigest md, int x, int y) {
         long pow = myPow(x, y);
         ByteBuffer buffer = ByteBuffer.allocate(32);
         buffer.putLong(pow);
         try {
-            MessageDigest md = MessageDigest.getInstance("SHA-256");
             for (int i = 0; i < 10; i++) {
                 md.digest(buffer.array(), 0, buffer.array().length);
             }
-        } catch (NoSuchAlgorithmException | DigestException e) {
+            md.reset();
+        } catch (DigestException e) {
             logger.error(e.getMessage());
         }
         return buffer.array();
