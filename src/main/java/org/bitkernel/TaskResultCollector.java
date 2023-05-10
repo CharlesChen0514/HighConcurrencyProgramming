@@ -14,7 +14,10 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Scanner;
-import java.util.concurrent.*;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.LongAdder;
 
 @Slf4j
@@ -165,28 +168,24 @@ public class TaskResultCollector {
         scheduled.scheduleAtFixedRate(this::scheduled, 0, 1, TimeUnit.MINUTES);
 
         while (true) {
-            try {
-                executorConn.getDin().readFully(readBuffer.array());
-                while (readBuffer.position() < readBuffer.limit()) {
-                    if (isNeedSample()) {
-                        long id = readBuffer.getLong();
-                        int x = readBuffer.getShort() & 0xffff;
-                        int y = readBuffer.getShort() & 0xffff;
-                        threadMem.put(id, x, y);
+            executorConn.readFully(readBuffer);
+            while (readBuffer.position() < readBuffer.limit()) {
+                if (isNeedSample()) {
+                    long id = readBuffer.getLong();
+                    int x = readBuffer.getShort() & 0xffff;
+                    int y = readBuffer.getShort() & 0xffff;
+                    threadMem.put(id, x, y);
 
-                        byte[] res = resBuffer[bufferId];
-                        readBuffer.get(res);
-                        resMap.put(threadMem.getLast(), res);
-                        bufferId += 1;
-                    } else {
-                        readBuffer.position(readBuffer.position() + TaskExecutor.getTOTAL_TASK_LEN());
-                    }
+                    byte[] res = resBuffer[bufferId];
+                    readBuffer.get(res);
+                    resMap.put(threadMem.getLast(), res);
+                    bufferId += 1;
+                } else {
+                    readBuffer.position(readBuffer.position() + TaskExecutor.getTOTAL_TASK_LEN());
                 }
-                readBuffer.clear();
-                taskNum.add(TaskExecutor.getRUN_BATCH_SIZE());
-            } catch (IOException e) {
-                logger.error(e.getMessage());
             }
+            readBuffer.clear();
+            taskNum.add(TaskExecutor.getRUN_BATCH_SIZE());
         }
     }
 }

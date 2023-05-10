@@ -4,7 +4,6 @@ import com.sun.istack.internal.NotNull;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
-import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.nio.ByteBuffer;
@@ -111,11 +110,7 @@ public class TaskExecutor {
 
         private void runBatch() {
             ByteBuffer readBuffer = threadMem.getReadBuffer();
-            try {
-                generatorConn.getDin().readFully(readBuffer.array());
-            } catch (IOException e) {
-                logger.error(e.getMessage());
-            }
+            generatorConn.readFully(readBuffer);
 
             for (int i = 0; i < RUN_BATCH_SIZE; i++) {
                 long id = readBuffer.getLong();
@@ -134,13 +129,7 @@ public class TaskExecutor {
                 threadMem.getSha256Buf().clear();
             }
 
-            try {
-                collectorConn.getDout().write(writeBuffer.array());
-                collectorConn.getDout().flush();
-            } catch (IOException e) {
-                logger.error(e.getMessage());
-            }
-
+            collectorConn.writeFully(writeBuffer);
             writeBuffer.clear();
             readBuffer.clear();
             threadMem.reset();

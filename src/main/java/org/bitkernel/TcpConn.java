@@ -7,6 +7,7 @@ import lombok.extern.slf4j.Slf4j;
 import java.io.*;
 import java.net.InetSocketAddress;
 import java.net.Socket;
+import java.nio.ByteBuffer;
 
 @Slf4j
 public class TcpConn {
@@ -29,6 +30,23 @@ public class TcpConn {
 
     public TcpConn(@NotNull String ip, int port) throws IOException {
         this(new Socket(ip, port));
+    }
+
+    public synchronized void readFully(@NotNull ByteBuffer readBuffer) {
+        try {
+            din.readFully(readBuffer.array());
+        } catch (IOException e) {
+            logger.error(e.getMessage());
+        }
+    }
+
+    public synchronized void writeFully(@NotNull ByteBuffer writeBuffer) {
+        try {
+            dout.write(writeBuffer.array());
+            dout.flush();
+        } catch (IOException e) {
+            logger.error(e.getMessage());
+        }
     }
 
     public static boolean checkPort(int port) {
