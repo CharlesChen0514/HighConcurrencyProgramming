@@ -1,7 +1,7 @@
 # 总览
 
 - 服务器峰值：300000 TPS（数据未更新）
-- 个人 PC 峰值：1300000 TPS
+- 个人 PC 峰值：2200000 TPS
 
 # 心得
 
@@ -113,3 +113,28 @@
 - 并发度：目标 1300000 TPS，达成
 
 ![](figs/130w.png)
+
+## 第十二次设计与测试
+
+- 问题：每次执行一次任务申请一次 MessageDigest 实例，空间效率低
+- 改进：
+  - 将 MessageDigest 的申请放到 BatchTask 中，一批任务申请一次 MessageDigest
+  - 每个任务执行完后重置 MessageDigest 的状态，进行复用
+- 并发度：目标 1500000 TPS，达成
+
+![](figs/150w.png)
+
+## 第十三次设计与测试
+
+- 改进技术点：
+
+  1. 数据接收方读取时将 read 函数改为 readfully，保证缓冲区读满数据
+  2. 将 sha256 的执行结果直接写入 buffer 中，不再申请内存空间
+  3. 通过 threadlocal 存放线程本地变量，包括 sha256 计算 buffer、MessageDigest 实例、Task 对象列表、读写 buffer 等，这些内存空间每个线程持有一份，一直使用到执行结束
+  4. 执行器将每读一次执行一次 BatchTask，改为执行器启动 n 个 executor 持续读写并执行 BatchTask，本质从单线程读写 -> 多线程读写；省去了每次 new BatchTask 的内存开销
+  5. 执行器执行的结果直接写入到 writeBuffer 中，删除了任务缓存队列，降低空间开销
+  6. collector 一次读取一个任务改为一次读取 Batch 任务
+  7. collector 申请 SAMPLE\_NUM 的 byte[] 数组，用于存放采样的任务的结果
+- 并发度：目标 2000000 TPS，达成，CPU 利用率 80%
+
+![](figs/200w.png)
