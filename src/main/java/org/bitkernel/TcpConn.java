@@ -32,7 +32,7 @@ public class TcpConn {
         this(new Socket(ip, port));
     }
 
-    public synchronized void readFully(@NotNull ByteBuffer readBuffer) {
+    public void readFully(@NotNull ByteBuffer readBuffer) {
         try {
             din.readFully(readBuffer.array());
         } catch (IOException e) {
@@ -40,7 +40,7 @@ public class TcpConn {
         }
     }
 
-    public synchronized void writeFully(@NotNull ByteBuffer writeBuffer) {
+    public void writeFully(@NotNull ByteBuffer writeBuffer) {
         try {
             dout.write(writeBuffer.array());
             dout.flush();

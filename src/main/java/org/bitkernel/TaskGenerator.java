@@ -3,7 +3,6 @@ package org.bitkernel;
 import com.sun.istack.internal.NotNull;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.util.StopWatch;
 
 import java.nio.ByteBuffer;
 import java.util.Scanner;
@@ -20,7 +19,7 @@ public class TaskGenerator {
 
     private final static int GENERATE_TASK_INTERVAL = 10;
     private final static int LOWEST_TPS = (int)(1000 * 1.0 / GENERATE_TASK_INTERVAL);
-    private final static int GENERATE_TASK_TIME = (int) (Math.ceil(1000 * 1.0 / GENERATE_TASK_INTERVAL));
+    private final static int GENERATE_TASK_NUM = (int) (Math.ceil(1000 * 1.0 / GENERATE_TASK_INTERVAL));
 
     /** Performance much faster than Random class */
     private final ThreadLocalRandom random = ThreadLocalRandom.current();
@@ -72,7 +71,7 @@ public class TaskGenerator {
         this.targetTps = targetTps;
 
         this.targetTpm = targetTps * 60;
-        this.batchSize = (int) Math.ceil(targetTps * 1.0 / GENERATE_TASK_TIME);
+        this.batchSize = (int) Math.ceil(targetTps * 1.0 / GENERATE_TASK_NUM);
         int bufferSize = batchSize * TASK_LEN;
         buffer = ByteBuffer.allocate(bufferSize);
         logger.debug("Endian is {}", buffer.order());

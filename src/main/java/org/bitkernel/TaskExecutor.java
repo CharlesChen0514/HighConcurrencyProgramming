@@ -27,6 +27,10 @@ public class TaskExecutor {
     /** Queue size in thread pool */
     private static final int QUEUE_SIZE = 800 * 10000;
     private final ThreadPoolExecutor executeThreadPool;
+    private final ExecutorPool executorPool;
+
+    private final ByteBuffer readBuffer = ByteBuffer.allocate(RUN_BATCH_SIZE * TaskGenerator.getTASK_LEN());
+    private final ByteBuffer writeBuffer = ByteBuffer.allocate(RUN_BATCH_SIZE * TOTAL_TASK_LEN);
 
     private final Udp udp = new Udp();
 
@@ -37,10 +41,10 @@ public class TaskExecutor {
     private TcpConn collectorConn;
 
     /** Number of tasks completed */
-    private LongAdder completedTaskNum = new LongAdder();
+    private final LongAdder completedTaskNum = new LongAdder();
 
     private int minutes = 0;
-    private final ThreadLocal<ThreadMem> threadLocal = ThreadLocal.withInitial(() -> new ThreadMem(RUN_BATCH_SIZE));
+    private final ThreadLocal<ThreadMem> threadLocal = ThreadLocal.withInitial(ThreadMem::new);
 
     public static void main(String[] args) {
         Scanner sc = new Scanner(System.in);
@@ -64,7 +68,7 @@ public class TaskExecutor {
         executeThreadPool = new ThreadPoolExecutor(processors + 1, processors + 1, 0,
                 TimeUnit.SECONDS, new ArrayBlockingQueue<>(QUEUE_SIZE), new ThreadPoolExecutor.DiscardPolicy());
         logger.debug("The maximum number of threads is set to {}", processors + 1);
-//        logger.debug("Endian is {}", readBuffer.order());
+        executorPool = new ExecutorPool();
 
         try (ServerSocket server = new ServerSocket(TCP_PORT)) {
             logger.debug("Waiting for generator to connect");
@@ -92,48 +96,85 @@ public class TaskExecutor {
         logger.debug("Start task executor service");
         ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
         scheduler.scheduleAtFixedRate(this::reportToMonitor, 0, 1, TimeUnit.MINUTES);
-        for (int i = 0; i < executeThreadPool.getMaximumPoolSize(); i++) {
-            executeThreadPool.execute(new Executor());
+
+        while (true) {
+            generatorConn.readFully(readBuffer);
+            BatchTaskExecutor executor = executorPool.borrow();
+            executor.readTask(readBuffer);
+            readBuffer.clear();
+            executeThreadPool.execute(executor);
         }
     }
 
-    class Executor implements Runnable {
-        private ThreadMem threadMem;
+    private synchronized void writeTask(@NotNull Task task, @NotNull byte[] res) {
+        writeBuffer.putLong(task.getId());
+        writeBuffer.putShort((short) (task.getX() & 0xffff));
+        writeBuffer.putShort((short) (task.getY() & 0xffff));
+        writeBuffer.put(res);
+//        logger.debug(task.toString() + " " + DatatypeConverter.printHexBinary(res));
 
-        @Override
-        public void run() {
-            threadMem = threadLocal.get();
-            while (true) {
-                runBatch();
+        if (writeBuffer.position() == writeBuffer.limit()) {
+            collectorConn.writeFully(writeBuffer);
+            writeBuffer.clear();
+        }
+    }
+
+    class ExecutorPool {
+        private final ConcurrentLinkedQueue<BatchTaskExecutor> executorQueue = new ConcurrentLinkedQueue<>();
+
+        public ExecutorPool() {
+            for (int i = 0; i < executeThreadPool.getMaximumPoolSize() * 1024; i++) {
+                executorQueue.offer(new BatchTaskExecutor());
             }
         }
 
-        private void runBatch() {
-            ByteBuffer readBuffer = threadMem.getReadBuffer();
-            generatorConn.readFully(readBuffer);
+        @NotNull
+        public BatchTaskExecutor borrow() {
+            while (true) {
+                if (!executorQueue.isEmpty()) {
+                    return executorQueue.poll();
+                }
+            }
+        }
 
+        public void turnBack(@NotNull BatchTaskExecutor executor) {
+            executorQueue.offer(executor);
+        }
+    }
+
+    class BatchTaskExecutor implements Runnable {
+        private ThreadMem threadMem;
+        private final Task[] tasks = new Task[RUN_BATCH_SIZE];
+
+        public BatchTaskExecutor() {
+            for (int i = 0; i < RUN_BATCH_SIZE; i++) {
+                tasks[i] = new Task();
+            }
+        }
+
+        public void readTask(@NotNull ByteBuffer readBuffer) {
             for (int i = 0; i < RUN_BATCH_SIZE; i++) {
                 long id = readBuffer.getLong();
                 int x = readBuffer.getShort() & 0xffff;
                 int y = readBuffer.getShort() & 0xffff;
-                threadMem.put(id, x, y);
-            }
 
-            ByteBuffer writeBuffer = threadMem.getWriteBuffer();
-            for (Task task : threadMem.getTasks()) {
+                tasks[i].setId(id);
+                tasks[i].setX(x);
+                tasks[i].setY(y);
+            }
+        }
+
+        @Override
+        public void run() {
+            threadMem = threadLocal.get();
+            for (Task task : tasks) {
                 byte[] res = Task.execute(threadMem.getMd(), threadMem.getSha256Buf(), task);
-                writeBuffer.putLong(task.getId());
-                writeBuffer.putShort((short) (task.getX() & 0xffff));
-                writeBuffer.putShort((short) (task.getY() & 0xffff));
-                writeBuffer.put(res);
+                writeTask(task, res);
                 threadMem.getSha256Buf().clear();
             }
 
-            collectorConn.writeFully(writeBuffer);
-            writeBuffer.clear();
-            readBuffer.clear();
-            threadMem.reset();
             completedTaskNum.add(RUN_BATCH_SIZE);
+            executorPool.turnBack(this);
         }
     }
 }

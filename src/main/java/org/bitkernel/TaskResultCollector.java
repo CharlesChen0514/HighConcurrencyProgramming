@@ -43,8 +43,8 @@ public class TaskResultCollector {
     /** Number of tasks received in one minute */
     private final LongAdder taskNum = new LongAdder();
     private int minutes = 0;
-    private final ThreadMem threadMem = new ThreadMem(SAMPLE_NUM);
-    private final Map<Task, byte[]> resMap = new LinkedHashMap<>();
+    private final ThreadMem threadMem = new ThreadMem();
+    private final Map<Task, byte[]> sampleMap = new LinkedHashMap<>();
     private final byte[][] resBuffer = new byte[SAMPLE_NUM][32];
     private int bufferId = 0;
 
@@ -93,9 +93,8 @@ public class TaskResultCollector {
 
         taskNum.reset();
         minutes += 1;
-        resMap.clear();
+        sampleMap.clear();
         bufferId = 0;
-        threadMem.reset();
         logger.debug("Execute scheduled jobs down");
     }
 
@@ -121,7 +120,7 @@ public class TaskResultCollector {
         StringBuilder errorSb = new StringBuilder();
         for (Map.Entry<Task, Boolean> entry : verficationMap.entrySet()) {
             Task task = entry.getKey();
-            byte[] res = resMap.get(task);
+            byte[] res = sampleMap.get(task);
             if (entry.getValue()) {
                 rightSb.append(task).append(" ").append(DatatypeConverter.printHexBinary(res)).append(System.lineSeparator());
             } else {
@@ -141,13 +140,13 @@ public class TaskResultCollector {
     @NotNull
     private Map<Task, Boolean> sampleVerification() {
         Map<Task, Boolean> verificationMap = new HashMap<>();
-        if (threadMem.isEmpty()) {
+        if (sampleMap.isEmpty()) {
             logger.error("Sample queue is empty, something error, please check.");
             return verificationMap;
         }
 
-        for (Task task : threadMem.getTasks()) {
-            byte[] res1 = resMap.get(task);
+        for (Task task : sampleMap.keySet()) {
+            byte[] res1 = sampleMap.get(task);
             byte[] res2 = Task.execute(threadMem.getMd(), threadMem.getSha256Buf(), task);
             threadMem.getSha256Buf().clear();
             String res1Str = DatatypeConverter.printHexBinary(res1);
@@ -159,7 +158,7 @@ public class TaskResultCollector {
     }
 
     private boolean isNeedSample() {
-        return threadMem.size() < SAMPLE_NUM && random.nextDouble() <= SAMPLE_PCT;
+        return sampleMap.size() < SAMPLE_NUM && random.nextDouble() <= SAMPLE_PCT;
     }
 
     private void start() {
@@ -174,11 +173,10 @@ public class TaskResultCollector {
                     long id = readBuffer.getLong();
                     int x = readBuffer.getShort() & 0xffff;
                     int y = readBuffer.getShort() & 0xffff;
-                    threadMem.put(id, x, y);
 
                     byte[] res = resBuffer[bufferId];
                     readBuffer.get(res);
-                    resMap.put(threadMem.getLast(), res);
+                    sampleMap.put(new Task(id, x, y), res);
                     bufferId += 1;
                 } else {
                     readBuffer.position(readBuffer.position() + TaskExecutor.getTOTAL_TASK_LEN());
