@@ -18,15 +18,13 @@ public class TaskGenerator {
     @Getter
     private final static int TASK_LEN = 12;
 
-    private final static int LOWEST_TPS = 1000;
-    private final static int GENERATE_TASK_INTERVAL = 1;
+    private final static int GENERATE_TASK_INTERVAL = 10;
+    private final static int LOWEST_TPS = (int)(1000 * 1.0 / GENERATE_TASK_INTERVAL);
     private final static int GENERATE_TASK_TIME = (int) (Math.ceil(1000 * 1.0 / GENERATE_TASK_INTERVAL));
 
     /** Performance much faster than Random class */
     private final ThreadLocalRandom random = ThreadLocalRandom.current();
 
-    private final StopWatch generateTaskWatch = new StopWatch();
-    private final StopWatch transferTaskWatch = new StopWatch();
     private final Udp udp = new Udp();
 
     private final String monitorIp;
@@ -120,7 +118,7 @@ public class TaskGenerator {
      * Generate {@link #batchSize} number of tasks to the executor
      */
     private void generateTask() {
-        generateTaskWatch.start(String.valueOf(System.currentTimeMillis()));
+        long generateTaskStartTime = System.currentTimeMillis();
         for (int offset = 0; offset < batchSize; offset++) {
             long id = totalTaskNum + offset;
             int x = random.nextInt(RANGE) + 1;
@@ -130,15 +128,15 @@ public class TaskGenerator {
             buffer.putShort((short) (y & 0xffff));
 //            logger.debug(String.format("%d %d %d", id, x, y));
         }
-        transferTaskWatch.start(String.valueOf(System.currentTimeMillis()));
+        long transferTaskStartTime = System.currentTimeMillis();
         executorConn.writeFully(buffer);
         buffer.clear();
-        transferTaskWatch.stop();
-        taskTransferTime += transferTaskWatch.getLastTaskTimeMillis();
+        long transferTaskEndTime = System.currentTimeMillis();
+        taskTransferTime += transferTaskEndTime - transferTaskStartTime;
 
         totalTaskNum += batchSize;
         newTaskNum += batchSize;
-        generateTaskWatch.stop();
-        taskGenerateTime += generateTaskWatch.getLastTaskTimeMillis();
+        long generateTaskEndTime = System.currentTimeMillis();
+        taskGenerateTime += generateTaskEndTime - generateTaskStartTime;
     }
 }
