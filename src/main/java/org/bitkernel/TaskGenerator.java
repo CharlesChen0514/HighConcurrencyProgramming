@@ -5,7 +5,6 @@ import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.util.StopWatch;
 
-import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Scanner;
 import java.util.concurrent.*;
@@ -19,10 +18,15 @@ public class TaskGenerator {
     @Getter
     private final static int TASK_LEN = 12;
 
+    private final static int LOWEST_TPS = 1000;
+    private final static int GENERATE_TASK_INTERVAL = 1;
+    private final static int GENERATE_TASK_TIME = (int) (Math.ceil(1000 * 1.0 / GENERATE_TASK_INTERVAL));
+
     /** Performance much faster than Random class */
     private final ThreadLocalRandom random = ThreadLocalRandom.current();
 
-    private final StopWatch stopWatch = new StopWatch();
+    private final StopWatch generateTaskWatch = new StopWatch();
+    private final StopWatch transferTaskWatch = new StopWatch();
     private final Udp udp = new Udp();
 
     private final String monitorIp;
@@ -41,6 +45,7 @@ public class TaskGenerator {
     /** Total number of tasks generated in a minute and the practice consumed */
     private long newTaskNum = 0;
     private long taskGenerateTime = 0L;
+    private long taskTransferTime = 0L;
 
     public static void main(String[] args) {
         Scanner sc = new Scanner(System.in);
@@ -50,6 +55,10 @@ public class TaskGenerator {
         String executorIp = sc.next();
         System.out.print("Please input the target TPS: ");
         long targetTps = sc.nextLong();
+        if (targetTps < LOWEST_TPS) {
+            logger.error("The lowest tps is {}", LOWEST_TPS);
+            System.exit(-1);
+        }
         logger.debug(String.format("Monitor ip: %s, executor ip: %s, target TPS: %d",
                 monitorIp, executorIp, targetTps));
 
@@ -65,7 +74,7 @@ public class TaskGenerator {
         this.targetTps = targetTps;
 
         this.targetTpm = targetTps * 60;
-        this.batchSize = (int) Math.ceil(targetTps * 1.0 / 100);
+        this.batchSize = (int) Math.ceil(targetTps * 1.0 / GENERATE_TASK_TIME);
         int bufferSize = batchSize * TASK_LEN;
         buffer = ByteBuffer.allocate(bufferSize);
         logger.debug("Endian is {}", buffer.order());
@@ -87,15 +96,17 @@ public class TaskGenerator {
         telemetry.scheduleAtFixedRate(this::telemetry, 0, 1, TimeUnit.MINUTES);
         logger.debug("Start scheduled thread: telemetry");
 
-        ScheduledExecutorService transferTask = Executors.newSingleThreadScheduledExecutor();
-        transferTask.scheduleAtFixedRate(this::transferTask, 0, 10, TimeUnit.MILLISECONDS);
-        logger.debug("Start scheduled thread: transferTask");
+        ScheduledExecutorService generateTask = Executors.newSingleThreadScheduledExecutor();
+        generateTask.scheduleAtFixedRate(this::generateTask, 0, GENERATE_TASK_INTERVAL, TimeUnit.MILLISECONDS);
+        logger.debug("Start scheduled thread: generateTask");
     }
 
     /**
      * Report message to the monitor
      */
     private void telemetry() {
+        logger.debug("Transfer the {}th minute task takes {} ms", minutes, taskTransferTime);
+        taskTransferTime = 0;
         logger.debug("Generate the {}th minute task takes {} ms", minutes, taskGenerateTime);
         taskGenerateTime = 0;
         logger.debug("New task number: {}", newTaskNum);
@@ -106,33 +117,28 @@ public class TaskGenerator {
     }
 
     /**
-     * Transfer {@link #batchSize} number of tasks to the executor
+     * Generate {@link #batchSize} number of tasks to the executor
      */
-    private void transferTask() {
-        stopWatch.start(String.valueOf(System.currentTimeMillis()));
+    private void generateTask() {
+        generateTaskWatch.start(String.valueOf(System.currentTimeMillis()));
         for (int offset = 0; offset < batchSize; offset++) {
-            if (buffer.position() + TASK_LEN > buffer.limit()) {
-                logger.error("Exceeded buffer size limit: {}, {}",
-                        buffer.position() + TASK_LEN, buffer.limit());
-                break;
-            }
+            long id = totalTaskNum + offset;
             int x = random.nextInt(RANGE) + 1;
             int y = random.nextInt(RANGE) + 1;
-            buffer.putLong(totalTaskNum + offset);
+            buffer.putLong(id);
             buffer.putShort((short) (x & 0xffff));
             buffer.putShort((short) (y & 0xffff));
-//            logger.debug(String.format("%d %d %d", totalTaskNum + offset, x, y));
+//            logger.debug(String.format("%d %d %d", id, x, y));
         }
-        try {
-            executorConn.getDout().write(buffer.array());
-            executorConn.getDout().flush();
-        } catch (IOException e) {
-            logger.error(e.getMessage());
-        }
+        transferTaskWatch.start(String.valueOf(System.currentTimeMillis()));
+        executorConn.writeFully(buffer);
         buffer.clear();
+        transferTaskWatch.stop();
+        taskTransferTime += transferTaskWatch.getLastTaskTimeMillis();
+
         totalTaskNum += batchSize;
         newTaskNum += batchSize;
-        stopWatch.stop();
-        taskGenerateTime += stopWatch.getLastTaskTimeMillis();
+        generateTaskWatch.stop();
+        taskGenerateTime += generateTaskWatch.getLastTaskTimeMillis();
     }
 }
