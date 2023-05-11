@@ -40,6 +40,18 @@ public class TcpConn {
         }
     }
 
+    public synchronized void read(@NotNull ByteBuffer readBuffer) {
+        int curLen = 0;
+        int capacity = readBuffer.limit();
+        while (curLen < capacity) {
+            try {
+                curLen += din.read(readBuffer.array(), curLen, capacity - curLen);
+            } catch (IOException e) {
+               logger.error(e.getMessage());
+            }
+        }
+    }
+
     public synchronized void write(@NotNull ByteBuffer writeBuffer) {
         try {
             dout.write(writeBuffer.array());

@@ -170,7 +170,7 @@ public class TaskResultCollector {
         }
 
         while (true) {
-            executorConn.readFully(readBuffer);
+            executorConn.read(readBuffer);
             while (readBuffer.position() < readBuffer.limit()) {
                 if (isNeedSample()) {
                     long id = readBuffer.getLong();

@@ -112,7 +112,7 @@ public class TaskExecutor {
 
         private void runBatch() {
             ByteBuffer readBuffer = executorThreadMem.getReadBuffer();
-            generatorConn.readFully(readBuffer);
+            generatorConn.read(readBuffer);
 
             for (int i = 0; i < TaskGenerator.getBATCH_SIZE(); i++) {
                 long id = readBuffer.getLong();
