@@ -68,7 +68,7 @@ public class Task {
         for (int i = 0; i < 10; i++) {
             array = md.digest(array);
         }
-        md.reset();
+//        md.reset();
         return array;
     }
 
