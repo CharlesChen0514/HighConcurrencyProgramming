@@ -26,7 +26,7 @@ public class Task {
     private int y;
 
     @NotNull
-    public static byte[] execute(@NotNull MessageDigest md, @NotNull ByteBuffer buffer,
+    public static byte[] execute(@NotNull MessageDigest md, @NotNull byte[] buffer,
                                  @NotNull Task task) {
         return Task.executeTask(md, buffer, task.x, task.y);
     }
@@ -60,25 +60,25 @@ public class Task {
 
     @NotNull
     public static byte[] executeTask(@NotNull MessageDigest md,
-                                     @NotNull ByteBuffer buffer,
+                                     @NotNull byte[] buffer,
                                      int x, int y) {
         long pow = myPow(x, y);
-        buffer.putLong(pow);
-        byte[] array = buffer.array();
+        for (int j = 0; j < 8; j++) {
+            buffer[j] = (byte) (pow >> j * 8);
+        }
         for (int i = 0; i < 10; i++) {
-            array = md.digest(array);
+            buffer = md.digest(buffer);
         }
 //        md.reset();
-        return array;
+        return buffer;
     }
 
-    public static long myPow(long x, long n) {
+    public static long myPow(long x, long y) {
         long ans = 1;
-        long t = n;
-        while (t != 0) {
-            if ((t & 1) == 1) ans *= x;
-            x *= x;
-            t >>= 1;
+        while (y != 0) {
+            if ((y & 1) == 1) ans *= x;
+            x = x * x;
+            y = y >> 1;
         }
         return ans;
     }

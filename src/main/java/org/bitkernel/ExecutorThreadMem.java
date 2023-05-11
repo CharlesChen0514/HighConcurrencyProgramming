@@ -7,28 +7,27 @@ import java.nio.ByteBuffer;
 import java.security.MessageDigest;
 
 @Slf4j
-public class ThreadMem {
+public class ExecutorThreadMem {
     @Getter
     private final MessageDigest md = Task.getMessageDigestInstance();
     @Getter
     private final ByteBuffer sha256Buf = ByteBuffer.allocate(32);
     @Getter
-    private final Task[] tasks;
+    private final Task[] tasks = new Task[TaskGenerator.getBATCH_SIZE()];
+    private final int READ_BUFFER_SIZE = TaskGenerator.getBATCH_SIZE() * TaskGenerator.getTASK_LEN();
+    private final int WRITE_BUFFER_SIZE = TaskGenerator.getBATCH_SIZE() * TaskExecutor.getTOTAL_TASK_LEN();
     @Getter
-    private final ByteBuffer readBuffer;
+    private final ByteBuffer readBuffer = ByteBuffer.allocate(READ_BUFFER_SIZE);
     @Getter
-    private final ByteBuffer writeBuffer;
-    private final int capacity;
+    private final ByteBuffer writeBuffer = ByteBuffer.allocate(WRITE_BUFFER_SIZE);
+    private final int capacity = TaskGenerator.getBATCH_SIZE();
+    @Getter
     private int idx;
 
-    public ThreadMem(int capacity) {
-        this.capacity = capacity;
-        tasks = new Task[capacity];
+    public ExecutorThreadMem() {
         for (int i = 0; i < tasks.length; i++) {
             tasks[i] = new Task();
         }
-        readBuffer = ByteBuffer.allocate(capacity * TaskGenerator.getTASK_LEN());
-        writeBuffer = ByteBuffer.allocate(capacity * TaskExecutor.getTOTAL_TASK_LEN());
     }
 
     public void put(long id, int x, int y) {

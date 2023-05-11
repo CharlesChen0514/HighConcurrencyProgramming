@@ -10,9 +10,7 @@ import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.nio.ByteBuffer;
-import java.util.HashMap;
-import java.util.LinkedHashMap;
-import java.util.Map;
+import java.security.MessageDigest;
 import java.util.Scanner;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -38,15 +36,18 @@ public class TaskResultCollector {
     private final Udp udp = new Udp();
     private final String monitorIp;
     private final TcpConn executorConn;
-    private final ByteBuffer readBuffer = ByteBuffer.allocate(TaskExecutor.getRUN_BATCH_SIZE() * TaskExecutor.getTOTAL_TASK_LEN());
+    private final ByteBuffer readBuffer = ByteBuffer.allocate(TaskGenerator.getBATCH_SIZE() * TaskExecutor.getTOTAL_TASK_LEN());
 
     /** Number of tasks received in one minute */
     private final LongAdder taskNum = new LongAdder();
     private int minutes = 0;
-    private final ThreadMem threadMem = new ThreadMem(SAMPLE_NUM);
-    private final Map<Task, byte[]> sampleMap = new LinkedHashMap<>();
     private final byte[][] resBuffer = new byte[SAMPLE_NUM][32];
+    private final Task[] tasks = new Task[SAMPLE_NUM];
     private int bufferId = 0;
+    @Getter
+    private final MessageDigest md = Task.getMessageDigestInstance();
+    @Getter
+    private final ByteBuffer sha256Buf = ByteBuffer.allocate(32);
 
     public static void main(String[] args) {
         Scanner sc = new Scanner(System.in);
@@ -65,7 +66,6 @@ public class TaskResultCollector {
         recordDir = System.getProperty("user.dir") + File.separator + "sample" + File.separator
                 + Monitor.getTime() + File.separator;
         logger.debug("The sampling records are stored in {}", recordDir);
-        logger.debug("Endian is {}", readBuffer.order());
 
         try (ServerSocket server = new ServerSocket(TCP_PORT)) {
             logger.debug("Waiting for executor to connect");
@@ -86,23 +86,21 @@ public class TaskResultCollector {
             return;
         }
 
-        Map<Task, Boolean> verificationMap = sampleVerification();
+        boolean[] verificationMap = sampleVerification();
         int rightCount = rightSampleNum(verificationMap);
         recordSampleRes(verificationMap, rightCount);
         telemetry(taskNum.longValue(), rightCount, SAMPLE_NUM - rightCount);
 
+        bufferId = 0;
         taskNum.reset();
         minutes += 1;
-        sampleMap.clear();
-        bufferId = 0;
-        threadMem.reset();
         logger.debug("Execute scheduled jobs down");
     }
 
-    private int rightSampleNum(@NotNull Map<Task, Boolean> verificationMap) {
+    private int rightSampleNum(@NotNull boolean[] verificationMap) {
         int rightCount = 0;
-        for (Map.Entry<Task, Boolean> entry : verificationMap.entrySet()) {
-            if (entry.getValue()) {
+        for (boolean flag : verificationMap) {
+            if (flag) {
                 rightCount++;
             }
         }
@@ -116,13 +114,13 @@ public class TaskResultCollector {
         udp.send(monitorIp, Monitor.getUDP_PORT(), monitorData);
     }
 
-    private void recordSampleRes(@NotNull Map<Task, Boolean> verficationMap, int rightCount) {
+    private void recordSampleRes(@NotNull boolean[] verificationMap, int rightCount) {
         StringBuilder rightSb = new StringBuilder();
         StringBuilder errorSb = new StringBuilder();
-        for (Map.Entry<Task, Boolean> entry : verficationMap.entrySet()) {
-            Task task = entry.getKey();
-            byte[] res = sampleMap.get(task);
-            if (entry.getValue()) {
+        for (int i = 0; i < SAMPLE_NUM; i++) {
+            Task task = tasks[i];
+            byte[] res = resBuffer[i];
+            if (verificationMap[i]) {
                 rightSb.append(task).append(" ").append(DatatypeConverter.printHexBinary(res)).append(System.lineSeparator());
             } else {
                 errorSb.append(task).append(" ").append(DatatypeConverter.printHexBinary(res)).append(System.lineSeparator());
@@ -139,33 +137,37 @@ public class TaskResultCollector {
     }
 
     @NotNull
-    private Map<Task, Boolean> sampleVerification() {
-        Map<Task, Boolean> verificationMap = new HashMap<>();
-        if (threadMem.isEmpty()) {
+    private boolean[] sampleVerification() {
+        boolean[] verificationMap = new boolean[SAMPLE_NUM];
+        if (bufferId == 0) {
             logger.error("Sample queue is empty, something error, please check.");
             return verificationMap;
         }
 
-        for (Task task : threadMem.getTasks()) {
-            byte[] res1 = sampleMap.get(task);
-            byte[] res2 = Task.execute(threadMem.getMd(), threadMem.getSha256Buf(), task);
-            threadMem.getSha256Buf().clear();
+        for (int i = 0; i < SAMPLE_NUM; i++) {
+            byte[] res1 = resBuffer[i];
+            Task task = tasks[i];
+            byte[] res2 = Task.execute(md, sha256Buf.array(), task);
+            sha256Buf.clear();
             String res1Str = DatatypeConverter.printHexBinary(res1);
             String res2Str = DatatypeConverter.printHexBinary(res2);
-            verificationMap.put(task, res1Str.equals(res2Str));
+            verificationMap[i] = res1Str.equals(res2Str);
 //            logger.debug(task.toString() + " " + res1Str + " " + verificationMap.get(taskPair));
         }
         return verificationMap;
     }
 
     private boolean isNeedSample() {
-        return threadMem.size() < SAMPLE_NUM && random.nextDouble() <= SAMPLE_PCT;
+        return bufferId < SAMPLE_NUM && random.nextDouble() <= SAMPLE_PCT;
     }
 
     private void start() {
         FileUtil.createFolder(recordDir);
         ScheduledExecutorService scheduled = Executors.newSingleThreadScheduledExecutor();
         scheduled.scheduleAtFixedRate(this::scheduled, 0, 1, TimeUnit.MINUTES);
+        for (int i = 0; i < SAMPLE_NUM; i++) {
+            tasks[i] = new Task();
+        }
 
         while (true) {
             executorConn.readFully(readBuffer);
@@ -174,18 +176,20 @@ public class TaskResultCollector {
                     long id = readBuffer.getLong();
                     int x = readBuffer.getShort() & 0xffff;
                     int y = readBuffer.getShort() & 0xffff;
-                    threadMem.put(id, x, y);
+
+                    tasks[bufferId].setId(id);
+                    tasks[bufferId].setX(x);
+                    tasks[bufferId].setY(y);
 
                     byte[] res = resBuffer[bufferId];
                     readBuffer.get(res);
-                    sampleMap.put(threadMem.getLast(), res);
                     bufferId += 1;
                 } else {
                     readBuffer.position(readBuffer.position() + TaskExecutor.getTOTAL_TASK_LEN());
                 }
             }
             readBuffer.clear();
-            taskNum.add(TaskExecutor.getRUN_BATCH_SIZE());
+            taskNum.add(TaskGenerator.getBATCH_SIZE());
         }
     }
 }

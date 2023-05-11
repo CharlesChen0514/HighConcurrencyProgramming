@@ -17,9 +17,8 @@ public class TaskGenerator {
     @Getter
     private final static int TASK_LEN = 12;
 
-    private final static int GENERATE_TASK_INTERVAL = 1;
+    private final static int GENERATE_TASK_INTERVAL = 1000;
     private final static int LOWEST_TPS = (int)(1000 * 1.0 / GENERATE_TASK_INTERVAL);
-    private final static int GENERATE_TASK_NUM = (int) (Math.ceil(1000 * 1.0 / GENERATE_TASK_INTERVAL));
 
     /** Performance much faster than Random class */
     private final ThreadLocalRandom random = ThreadLocalRandom.current();
@@ -33,7 +32,8 @@ public class TaskGenerator {
     private final ByteBuffer buffer;
 
     /** Number of tasks in one transmission */
-    private final int batchSize;
+    @Getter
+    private final static int BATCH_SIZE = 2048;
 
     private TcpConn executorConn;
     private int minutes = 0;
@@ -71,12 +71,11 @@ public class TaskGenerator {
         this.targetTps = targetTps;
 
         this.targetTpm = targetTps * 60;
-        this.batchSize = (int) Math.ceil(targetTps * 1.0 / GENERATE_TASK_NUM);
-        int bufferSize = batchSize * TASK_LEN;
+        int bufferSize = BATCH_SIZE * TASK_LEN;
         buffer = ByteBuffer.allocate(bufferSize);
         logger.debug("Endian is {}", buffer.order());
         logger.debug(String.format("Target TPM: %d, batch size: %d, buffer size: %d",
-                targetTpm, batchSize, bufferSize));
+                targetTpm, BATCH_SIZE, bufferSize));
 
         try {
             executorConn = new TcpConn(executorIp, TaskExecutor.getTCP_PORT());
@@ -114,28 +113,30 @@ public class TaskGenerator {
     }
 
     /**
-     * Generate {@link #batchSize} number of tasks to the executor
+     * Generate {@link #targetTps} number of tasks to the executor
      */
     private void generateTask() {
-        long generateTaskStartTime = System.currentTimeMillis();
-        for (int offset = 0; offset < batchSize; offset++) {
-            long id = totalTaskNum + offset;
-            int x = random.nextInt(RANGE) + 1;
-            int y = random.nextInt(RANGE) + 1;
-            buffer.putLong(id);
-            buffer.putShort((short) (x & 0xffff));
-            buffer.putShort((short) (y & 0xffff));
+        for (int i = 0; i < targetTps; i += BATCH_SIZE) {
+            long generateTaskStartTime = System.currentTimeMillis();
+            for (int offset = 0; offset < BATCH_SIZE; offset++) {
+                long id = totalTaskNum + offset;
+                int x = random.nextInt(RANGE) + 1;
+                int y = random.nextInt(RANGE) + 1;
+                buffer.putLong(id);
+                buffer.putShort((short) (x & 0xffff));
+                buffer.putShort((short) (y & 0xffff));
 //            logger.debug(String.format("%d %d %d", id, x, y));
-        }
-        long transferTaskStartTime = System.currentTimeMillis();
-        executorConn.writeFully(buffer);
-        buffer.clear();
-        long transferTaskEndTime = System.currentTimeMillis();
-        taskTransferTime += transferTaskEndTime - transferTaskStartTime;
+            }
+            long transferTaskStartTime = System.currentTimeMillis();
+            executorConn.write(buffer);
+            buffer.clear();
+            long transferTaskEndTime = System.currentTimeMillis();
+            taskTransferTime += transferTaskEndTime - transferTaskStartTime;
 
-        totalTaskNum += batchSize;
-        newTaskNum += batchSize;
-        long generateTaskEndTime = System.currentTimeMillis();
-        taskGenerateTime += generateTaskEndTime - generateTaskStartTime;
+            totalTaskNum += BATCH_SIZE;
+            newTaskNum += BATCH_SIZE;
+            long generateTaskEndTime = System.currentTimeMillis();
+            taskGenerateTime += generateTaskEndTime - generateTaskStartTime;
+        }
     }
 }

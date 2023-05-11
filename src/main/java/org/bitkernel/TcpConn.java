@@ -40,7 +40,7 @@ public class TcpConn {
         }
     }
 
-    public synchronized void writeFully(@NotNull ByteBuffer writeBuffer) {
+    public synchronized void write(@NotNull ByteBuffer writeBuffer) {
         try {
             dout.write(writeBuffer.array());
             dout.flush();
