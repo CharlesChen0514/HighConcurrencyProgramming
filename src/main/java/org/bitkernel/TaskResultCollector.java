@@ -46,6 +46,7 @@ public class TaskResultCollector {
     private final ThreadMem threadMem = new ThreadMem();
     private final Map<Task, byte[]> sampleMap = new LinkedHashMap<>();
     private final byte[][] resBuffer = new byte[SAMPLE_NUM][32];
+    private final Task[] tasks = new Task[SAMPLE_NUM];
     private int bufferId = 0;
 
     public static void main(String[] args) {
@@ -158,13 +159,16 @@ public class TaskResultCollector {
     }
 
     private boolean isNeedSample() {
-        return sampleMap.size() < SAMPLE_NUM && random.nextDouble() <= SAMPLE_PCT;
+        return bufferId < SAMPLE_NUM && random.nextDouble() <= SAMPLE_PCT;
     }
 
     private void start() {
         FileUtil.createFolder(recordDir);
         ScheduledExecutorService scheduled = Executors.newSingleThreadScheduledExecutor();
         scheduled.scheduleAtFixedRate(this::scheduled, 0, 1, TimeUnit.MINUTES);
+        for (int i = 0; i < tasks.length; i++) {
+            tasks[i] = new Task();
+        }
 
         while (true) {
             executorConn.readFully(readBuffer);
@@ -174,9 +178,14 @@ public class TaskResultCollector {
                     int x = readBuffer.getShort() & 0xffff;
                     int y = readBuffer.getShort() & 0xffff;
 
+                    Task task = tasks[bufferId];
+                    task.setId(id);
+                    task.setX(x);
+                    task.setY(y);
+
                     byte[] res = resBuffer[bufferId];
                     readBuffer.get(res);
-                    sampleMap.put(new Task(id, x, y), res);
+                    sampleMap.put(task, res);
                     bufferId += 1;
                 } else {
                     readBuffer.position(readBuffer.position() + TaskExecutor.getTOTAL_TASK_LEN());
