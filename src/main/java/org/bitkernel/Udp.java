@@ -50,7 +50,9 @@ public class Udp {
         InetSocketAddress socAddr = new InetSocketAddress(ip, port);
         DatagramPacket packet = new DatagramPacket(bytes, 0, bytes.length, socAddr);
         try {
-            socket.send(packet);
+            for (int i = 0; i < 3; i++) {
+                socket.send(packet);
+            }
             logger.debug("UDP send data [{}] to {} success", dataStr, socAddr);
         } catch (IOException e) {
             logger.debug("UDP send data [{}] to {} failed", dataStr, socAddr);

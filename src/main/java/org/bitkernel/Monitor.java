@@ -7,6 +7,8 @@ import lombok.extern.slf4j.Slf4j;
 import java.io.File;
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.LinkedHashSet;
+import java.util.Set;
 
 @Slf4j
 public class Monitor {
@@ -25,6 +27,7 @@ public class Monitor {
     /** Accumulated number of correct and incorrect task samples */
     private int correctTaskNum = 0;
     private int incorrectTaskNum = 0;
+    private final Set<String> pktStringSet = new LinkedHashSet<>();
 
     public static void main(String[] args) {
         Monitor m = new Monitor();
@@ -52,8 +55,11 @@ public class Monitor {
             // e.g. 0@2@msg, representing the message sent by
             // generator in the second minute.
             String pktString = udp.receiveString();
-            logger.debug("Receive packet: {}", pktString);
-            recordMsg(pktString);
+            if (!pktStringSet.contains(pktString)) {
+                pktStringSet.add(pktString);
+                logger.debug("Receive packet: {}", pktString);
+                recordMsg(pktString);
+            }
         }
     }
 
