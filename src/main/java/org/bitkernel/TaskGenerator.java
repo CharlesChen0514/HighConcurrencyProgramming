@@ -17,7 +17,7 @@ public class TaskGenerator {
     @Getter
     private final static int TASK_LEN = 12;
 
-    private final static int GENERATE_TASK_INTERVAL = 10;
+    private final static int GENERATE_TASK_INTERVAL = 1;
     private final static int LOWEST_TPS = (int)(1000 * 1.0 / GENERATE_TASK_INTERVAL);
     private final static int GENERATE_TASK_NUM = (int) (Math.ceil(1000 * 1.0 / GENERATE_TASK_INTERVAL));
 
