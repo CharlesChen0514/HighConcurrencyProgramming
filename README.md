@@ -1,7 +1,16 @@
+# 极限值
+
+- windows 单核：37.5W
+- windows 20 核：750W
+- Linux 单核：28W
+- Linux 12 核：336W
+- 网络 100M：(100 * 1024 * 1024)/(44 * 8) = 297890 = 29.79W TPS
+- 网络 1000M：29.79W * 10 = 297.89W TPS
+
 # 总览
 
 - 服务器峰值：300000 TPS（数据未更新）
-- 个人 PC 峰值：2200000 TPS
+- 个人 PC 峰值：2000000 TPS
 
 # 心得
 
@@ -130,11 +139,18 @@
 
   1. 数据接收方读取时将 read 函数改为 readfully，保证缓冲区读满数据
   2. 将 sha256 的执行结果直接写入 buffer 中，不再申请内存空间
-  3. 通过 threadlocal 存放线程本地变量，包括 sha256 计算 buffer、MessageDigest 实例、Task 对象列表、读写 buffer 等，这些内存空间每个线程持有一份，一直使用到执行结束
-  4. 执行器将每读一次执行一次 BatchTask，改为执行器启动 n 个 executor 持续读写并执行 BatchTask，本质从单线程读写 -> 多线程读写；省去了每次 new BatchTask 的内存开销
+  3. 通过 threadlocal 存放线程本地变量，包括 sha256 计算 buffer、MessageDigest 实例，一直使用到执行结束
+  4. 执行器预先申请若干个 BatchTaskExecutor，通过对象池进行管理，执行过程中反复使用，避免内存申请导致 gc
   5. 执行器执行的结果直接写入到 writeBuffer 中，删除了任务缓存队列，降低空间开销
   6. collector 一次读取一个任务改为一次读取 Batch 任务
   7. collector 申请 SAMPLE\_NUM 的 byte[] 数组，用于存放采样的任务的结果
 - 并发度：目标 2000000 TPS，达成，CPU 利用率 80%
 
 ![](figs/200w.png)
+
+## 第十四次设计与测试
+
+- 问题：在 linux 上测试，TPS 只会达到 267333.33，我们三个人测试都不约而同得到这个数字
+- 原因：host3 网卡速率为 100M，host1 和 host2 均为 1000M，host3 的速率限制了并发度的提升
+
+![](figs/网卡100M.png)
