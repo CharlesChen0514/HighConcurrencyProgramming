@@ -1,0 +1,427 @@
+---------- 0 minute ----------
+New task number: 0
+Current TPS: 0.00
+Total task number: 0
+Average TPS: 0.00
+Waiting queue task number: 0
+
+---------- 1 minute ----------
+New task number: 18000640
+Current TPS: 300010.67
+Total task number: 18000640
+Average TPS: 300010.67
+Waiting queue task number: 1472
+
+---------- 2 minute ----------
+New task number: 18000064
+Current TPS: 300001.07
+Total task number: 36000704
+Average TPS: 300005.87
+Waiting queue task number: 1344
+
+---------- 3 minute ----------
+New task number: 18000320
+Current TPS: 300005.33
+Total task number: 54001024
+Average TPS: 300005.69
+Waiting queue task number: 2336
+
+---------- 4 minute ----------
+New task number: 18000160
+Current TPS: 300002.67
+Total task number: 72001184
+Average TPS: 300004.93
+Waiting queue task number: 1280
+
+---------- 5 minute ----------
+New task number: 18000096
+Current TPS: 300001.60
+Total task number: 90001280
+Average TPS: 300004.27
+Waiting queue task number: 1472
+
+---------- 6 minute ----------
+New task number: 17999840
+Current TPS: 299997.33
+Total task number: 108001120
+Average TPS: 300003.11
+Waiting queue task number: 1920
+
+---------- 7 minute ----------
+New task number: 18000480
+Current TPS: 300008.00
+Total task number: 126001600
+Average TPS: 300003.81
+Waiting queue task number: 5728
+
+---------- 8 minute ----------
+New task number: 18000032
+Current TPS: 300000.53
+Total task number: 144001632
+Average TPS: 300003.40
+Waiting queue task number: 1952
+
+---------- 9 minute ----------
+New task number: 18000128
+Current TPS: 300002.13
+Total task number: 162001760
+Average TPS: 300003.26
+Waiting queue task number: 1824
+
+---------- 10 minute ----------
+New task number: 18000064
+Current TPS: 300001.07
+Total task number: 180001824
+Average TPS: 300003.04
+Waiting queue task number: 6400
+
+---------- 11 minute ----------
+New task number: 18000288
+Current TPS: 300004.80
+Total task number: 198002112
+Average TPS: 300003.20
+Waiting queue task number: 1984
+
+---------- 12 minute ----------
+New task number: 18000128
+Current TPS: 300002.13
+Total task number: 216002240
+Average TPS: 300003.11
+Waiting queue task number: 2272
+
+---------- 13 minute ----------
+New task number: 17999872
+Current TPS: 299997.87
+Total task number: 234002112
+Average TPS: 300002.71
+Waiting queue task number: 2752
+
+---------- 14 minute ----------
+New task number: 18000704
+Current TPS: 300011.73
+Total task number: 252002816
+Average TPS: 300003.35
+Waiting queue task number: 3200
+
+---------- 15 minute ----------
+New task number: 18000256
+Current TPS: 300004.27
+Total task number: 270003072
+Average TPS: 300003.41
+Waiting queue task number: 8096
+
+---------- 16 minute ----------
+New task number: 18000256
+Current TPS: 300004.27
+Total task number: 288003328
+Average TPS: 300003.47
+Waiting queue task number: 7392
+
+---------- 17 minute ----------
+New task number: 17998400
+Current TPS: 299973.33
+Total task number: 306001728
+Average TPS: 300001.69
+Waiting queue task number: 9344
+
+---------- 18 minute ----------
+New task number: 18001504
+Current TPS: 300025.07
+Total task number: 324003232
+Average TPS: 300002.99
+Waiting queue task number: 4096
+
+---------- 19 minute ----------
+New task number: 17999936
+Current TPS: 299998.93
+Total task number: 342003168
+Average TPS: 300002.78
+Waiting queue task number: 3712
+
+---------- 20 minute ----------
+New task number: 18000544
+Current TPS: 300009.07
+Total task number: 360003712
+Average TPS: 300003.09
+Waiting queue task number: 2304
+
+---------- 21 minute ----------
+New task number: 17999264
+Current TPS: 299987.73
+Total task number: 378002976
+Average TPS: 300002.36
+Waiting queue task number: 5632
+
+---------- 22 minute ----------
+New task number: 18000896
+Current TPS: 300014.93
+Total task number: 396003872
+Average TPS: 300002.93
+Waiting queue task number: 3104
+
+---------- 23 minute ----------
+New task number: 17999008
+Current TPS: 299983.47
+Total task number: 414002880
+Average TPS: 300002.09
+Waiting queue task number: 7136
+
+---------- 24 minute ----------
+New task number: 18000928
+Current TPS: 300015.47
+Total task number: 432003808
+Average TPS: 300002.64
+Waiting queue task number: 3648
+
+---------- 25 minute ----------
+New task number: 18000352
+Current TPS: 300005.87
+Total task number: 450004160
+Average TPS: 300002.77
+Waiting queue task number: 3360
+
+---------- 26 minute ----------
+New task number: 17998720
+Current TPS: 299978.67
+Total task number: 468002880
+Average TPS: 300001.85
+Waiting queue task number: 16800
+
+---------- 27 minute ----------
+New task number: 18000960
+Current TPS: 300016.00
+Total task number: 486003840
+Average TPS: 300002.37
+Waiting queue task number: 9280
+
+---------- 28 minute ----------
+New task number: 17998528
+Current TPS: 299975.47
+Total task number: 504002368
+Average TPS: 300001.41
+Waiting queue task number: 7776
+
+---------- 29 minute ----------
+New task number: 18001184
+Current TPS: 300019.73
+Total task number: 522003552
+Average TPS: 300002.04
+Waiting queue task number: 8096
+
+---------- 30 minute ----------
+New task number: 17999968
+Current TPS: 299999.47
+Total task number: 540003520
+Average TPS: 300001.96
+Waiting queue task number: 2880
+
+---------- 31 minute ----------
+New task number: 17999168
+Current TPS: 299986.13
+Total task number: 558002688
+Average TPS: 300001.45
+Waiting queue task number: 12992
+
+---------- 32 minute ----------
+New task number: 17999776
+Current TPS: 299996.27
+Total task number: 576002464
+Average TPS: 300001.28
+Waiting queue task number: 4800
+
+---------- 33 minute ----------
+New task number: 18000416
+Current TPS: 300006.93
+Total task number: 594002880
+Average TPS: 300001.45
+Waiting queue task number: 9440
+
+---------- 34 minute ----------
+New task number: 18000160
+Current TPS: 300002.67
+Total task number: 612003040
+Average TPS: 300001.49
+Waiting queue task number: 9472
+
+---------- 35 minute ----------
+New task number: 18000000
+Current TPS: 300000.00
+Total task number: 630003040
+Average TPS: 300001.45
+Waiting queue task number: 9088
+
+---------- 36 minute ----------
+New task number: 18000064
+Current TPS: 300001.07
+Total task number: 648003104
+Average TPS: 300001.44
+Waiting queue task number: 2528
+
+---------- 37 minute ----------
+New task number: 17998688
+Current TPS: 299978.13
+Total task number: 666001792
+Average TPS: 300000.81
+Waiting queue task number: 3936
+
+---------- 38 minute ----------
+New task number: 17999296
+Current TPS: 299988.27
+Total task number: 684001088
+Average TPS: 300000.48
+Waiting queue task number: 2624
+
+---------- 39 minute ----------
+New task number: 17999712
+Current TPS: 299995.20
+Total task number: 702000800
+Average TPS: 300000.34
+Waiting queue task number: 1824
+
+---------- 40 minute ----------
+New task number: 17999744
+Current TPS: 299995.73
+Total task number: 720000544
+Average TPS: 300000.23
+Waiting queue task number: 2208
+
+---------- 41 minute ----------
+New task number: 17999872
+Current TPS: 299997.87
+Total task number: 738000416
+Average TPS: 300000.17
+Waiting queue task number: 736
+
+---------- 42 minute ----------
+New task number: 17999904
+Current TPS: 299998.40
+Total task number: 756000320
+Average TPS: 300000.13
+Waiting queue task number: 1568
+
+---------- 43 minute ----------
+New task number: 17999872
+Current TPS: 299997.87
+Total task number: 774000192
+Average TPS: 300000.07
+Waiting queue task number: 160
+
+---------- 44 minute ----------
+New task number: 17999840
+Current TPS: 299997.33
+Total task number: 792000032
+Average TPS: 300000.01
+Waiting queue task number: 704
+
+---------- 45 minute ----------
+New task number: 18000000
+Current TPS: 300000.00
+Total task number: 810000032
+Average TPS: 300000.01
+Waiting queue task number: 96
+
+---------- 46 minute ----------
+New task number: 17999968
+Current TPS: 299999.47
+Total task number: 828000000
+Average TPS: 300000.00
+Waiting queue task number: 480
+
+---------- 47 minute ----------
+New task number: 18000000
+Current TPS: 300000.00
+Total task number: 846000000
+Average TPS: 300000.00
+Waiting queue task number: 0
+
+---------- 48 minute ----------
+New task number: 18000000
+Current TPS: 300000.00
+Total task number: 864000000
+Average TPS: 300000.00
+Waiting queue task number: 0
+
+---------- 49 minute ----------
+New task number: 18000000
+Current TPS: 300000.00
+Total task number: 882000000
+Average TPS: 300000.00
+Waiting queue task number: 64
+
+---------- 50 minute ----------
+New task number: 18000000
+Current TPS: 300000.00
+Total task number: 900000000
+Average TPS: 300000.00
+Waiting queue task number: 32
+
+---------- 51 minute ----------
+New task number: 18000000
+Current TPS: 300000.00
+Total task number: 918000000
+Average TPS: 300000.00
+Waiting queue task number: 0
+
+---------- 52 minute ----------
+New task number: 18000000
+Current TPS: 300000.00
+Total task number: 936000000
+Average TPS: 300000.00
+Waiting queue task number: 0
+
+---------- 53 minute ----------
+New task number: 18000000
+Current TPS: 300000.00
+Total task number: 954000000
+Average TPS: 300000.00
+Waiting queue task number: 0
+
+---------- 54 minute ----------
+New task number: 18000000
+Current TPS: 300000.00
+Total task number: 972000000
+Average TPS: 300000.00
+Waiting queue task number: 0
+
+---------- 55 minute ----------
+New task number: 18000000
+Current TPS: 300000.00
+Total task number: 990000000
+Average TPS: 300000.00
+Waiting queue task number: 0
+
+---------- 56 minute ----------
+New task number: 18000000
+Current TPS: 300000.00
+Total task number: 1008000000
+Average TPS: 300000.00
+Waiting queue task number: 0
+
+---------- 57 minute ----------
+New task number: 18000000
+Current TPS: 300000.00
+Total task number: 1026000000
+Average TPS: 300000.00
+Waiting queue task number: 0
+
+---------- 58 minute ----------
+New task number: 18000000
+Current TPS: 300000.00
+Total task number: 1044000000
+Average TPS: 300000.00
+Waiting queue task number: 0
+
+---------- 59 minute ----------
+New task number: 18000000
+Current TPS: 300000.00
+Total task number: 1062000000
+Average TPS: 300000.00
+Waiting queue task number: 0
+
+---------- 60 minute ----------
+New task number: 18000000
+Current TPS: 300000.00
+Total task number: 1080000000
+Average TPS: 300000.00
+Waiting queue task number: 0
+
