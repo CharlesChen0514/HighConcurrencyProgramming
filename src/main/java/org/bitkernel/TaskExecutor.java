@@ -72,7 +72,7 @@ public class TaskExecutor {
         int threadNum;
         String osName = System.getProperty("os.name");
         if (osName.startsWith("Windows")) {
-            threadNum = processors - 1;
+            threadNum = processors - 2;
         } else {
             threadNum = processors + 1;
         }
