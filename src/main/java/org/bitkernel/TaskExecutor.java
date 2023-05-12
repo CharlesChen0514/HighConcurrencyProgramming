@@ -58,14 +58,8 @@ public class TaskExecutor {
 
         int processors = Runtime.getRuntime().availableProcessors();
         int threadNum;
-        String osName = System.getProperty("os.name");
-        if (osName.startsWith("Windows")) {
-            threadNum = processors - 2;
-        } else {
-            threadNum = processors + 1;
-        }
-        executeThreadPool = new ThreadPoolExecutor(threadNum, threadNum, 0,
-                TimeUnit.SECONDS, new ArrayBlockingQueue<>(QUEUE_SIZE), new ThreadPoolExecutor.DiscardPolicy());
+        threadNum = processors + 1;
+        executeThreadPool = (ThreadPoolExecutor) Executors.newFixedThreadPool(threadNum);
         logger.debug("The maximum number of threads is set to {}", threadNum);
 
         try (ServerSocket server = new ServerSocket(TCP_PORT)) {

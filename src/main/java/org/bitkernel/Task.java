@@ -75,7 +75,7 @@ public class Task {
 
     public static long myPow(long x, long y) {
         long ans = 1;
-        while (y != 0) {
+        while (y > 0) {
             if ((y & 1) == 1) ans *= x;
             x = x * x;
             y = y >> 1;

@@ -33,7 +33,7 @@ public class TaskGenerator {
 
     /** Number of tasks in one transmission */
     @Getter
-    private final static int BATCH_SIZE = 2048;
+    private final static int BATCH_SIZE = 4096;
 
     private TcpConn executorConn;
     private int minutes = 0;

@@ -17,12 +17,16 @@ public class TcpConn {
     private DataOutputStream dout;
     @Getter
     private DataInputStream din;
+    private BufferedInputStream bis;
+    private BufferedOutputStream bos;
 
     public TcpConn(@NotNull Socket socket) {
         this.socket = socket;
         try {
             dout = new DataOutputStream(socket.getOutputStream());
             din = new DataInputStream(socket.getInputStream());
+            bis = new BufferedInputStream(socket.getInputStream());
+            bos = new BufferedOutputStream(socket.getOutputStream());
         } catch (IOException e) {
             logger.error(e.getMessage());
         }
@@ -40,22 +44,43 @@ public class TcpConn {
         }
     }
 
+//    public synchronized void read(@NotNull ByteBuffer readBuffer) {
+//        int curLen = 0;
+//        int capacity = readBuffer.limit();
+//        while (curLen < capacity) {
+//            try {
+//                curLen += din.read(readBuffer.array(), curLen, capacity - curLen);
+//            } catch (IOException e) {
+//               logger.error(e.getMessage());
+//            }
+//        }
+//    }
+//
+//    public synchronized void write(@NotNull ByteBuffer writeBuffer) {
+//        try {
+//            dout.write(writeBuffer.array());
+//            dout.flush();
+//        } catch (IOException e) {
+//            logger.error(e.getMessage());
+//        }
+//    }
+
     public synchronized void read(@NotNull ByteBuffer readBuffer) {
         int curLen = 0;
         int capacity = readBuffer.limit();
         while (curLen < capacity) {
             try {
-                curLen += din.read(readBuffer.array(), curLen, capacity - curLen);
+                curLen += bis.read(readBuffer.array(), curLen, capacity - curLen);
             } catch (IOException e) {
-               logger.error(e.getMessage());
+                logger.error(e.getMessage());
             }
         }
     }
 
     public synchronized void write(@NotNull ByteBuffer writeBuffer) {
         try {
-            dout.write(writeBuffer.array());
-            dout.flush();
+            bos.write(writeBuffer.array());
+//            dout.flush();
         } catch (IOException e) {
             logger.error(e.getMessage());
         }
