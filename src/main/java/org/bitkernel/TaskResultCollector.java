@@ -157,10 +157,6 @@ public class TaskResultCollector {
         return verificationMap;
     }
 
-    private boolean isNeedSample() {
-        return bufferId < SAMPLE_NUM && random.nextDouble() <= SAMPLE_PCT;
-    }
-
     private void start() {
         FileUtil.createFolder(recordDir);
         ScheduledExecutorService scheduled = Executors.newSingleThreadScheduledExecutor();
@@ -172,7 +168,10 @@ public class TaskResultCollector {
         while (true) {
             executorConn.read(readBuffer);
             while (readBuffer.position() < readBuffer.limit()) {
-                if (isNeedSample()) {
+                if (bufferId >= SAMPLE_NUM) {
+                    break;
+                }
+                if (random.nextDouble() <= SAMPLE_PCT) {
                     long id = readBuffer.getLong();
                     int x = readBuffer.getShort() & 0xffff;
                     int y = readBuffer.getShort() & 0xffff;
