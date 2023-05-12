@@ -9,8 +9,8 @@
 
 # 总览
 
-- 服务器峰值：300000 TPS（数据未更新）
-- 个人 PC 峰值：2000000 TPS
+- 服务器峰值：1800000 TPS
+- 个人 PC 峰值：2800000 TPS
 
 # 心得
 
@@ -154,3 +154,15 @@
 - 原因：host3 网卡速率为 100M，host1 和 host2 均为 1000M，host3 的速率限制了并发度的提升
 
 ![](figs/网卡100M.png)
+
+- 并发度：Linux 目标 180W TPS，达成，host3 网卡速率改为 1000M
+
+## 第十五次设计与测试
+
+- 现象：300W TPS 暴力压测以后，PC 能够达到的 TPS 仅有 100W，理论上处理不过来会丢弃也不应该降低 TPS
+- 改进计数点：
+  - 统一 generator，executor，collector 的 batch 大小，batch 大小不同会导致 IO 时数据不断切分，效率低下
+  - 将 readfully 函数改为循环 read，降低 IO 等待时间
+- 并发度：PC 415W TPS
+
+![](figs/415W.png)

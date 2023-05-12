@@ -1,7 +1,7 @@
-import lombok.extern.slf4j.Slf4j;
-import org.bitkernel.Task;
+package org.bitkernel;
 
-import java.nio.ByteBuffer;
+import lombok.extern.slf4j.Slf4j;
+
 import java.security.MessageDigest;
 import java.util.concurrent.ThreadLocalRandom;
 
@@ -9,7 +9,7 @@ import java.util.concurrent.ThreadLocalRandom;
 public class LimitTest {
     public static void main(String[] args) {
         long c = 0;
-        ByteBuffer buffer = ByteBuffer.allocate(32);
+        byte[] buffer = new byte[8];
         MessageDigest md = Task.getMessageDigestInstance();
         ThreadLocalRandom random = ThreadLocalRandom.current();
         long time = 0;
@@ -19,8 +19,7 @@ public class LimitTest {
             int x = random.nextInt(65535);
             int y = random.nextInt(65535);
             Task.executeTask(md, buffer, x, y);
-            c += 1;
-            buffer.clear();
+            c++;
             if (time > 60L * 1000 * 1000000) {
                 break;
             }
