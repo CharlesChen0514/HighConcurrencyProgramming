@@ -1,10 +1,8 @@
 package org.bitkernel;
 
-import com.sun.istack.internal.NotNull;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
-import javax.xml.bind.DatatypeConverter;
 import java.io.File;
 import java.io.IOException;
 import java.net.ServerSocket;
@@ -59,7 +57,7 @@ public class TaskResultCollector {
         collector.start();
     }
 
-    private TaskResultCollector(@NotNull String monitorIp) {
+    private TaskResultCollector(String monitorIp) {
         logger.debug("Initialize the task collector");
         this.monitorIp = monitorIp;
 
@@ -97,7 +95,7 @@ public class TaskResultCollector {
         logger.debug("Execute scheduled jobs down");
     }
 
-    private int rightSampleNum(@NotNull boolean[] verificationMap) {
+    private int rightSampleNum(boolean[] verificationMap) {
         int rightCount = 0;
         for (boolean flag : verificationMap) {
             if (flag) {
@@ -114,16 +112,16 @@ public class TaskResultCollector {
         udp.send(monitorIp, Monitor.getUDP_PORT(), monitorData);
     }
 
-    private void recordSampleRes(@NotNull boolean[] verificationMap, int rightCount) {
+    private void recordSampleRes(boolean[] verificationMap, int rightCount) {
         StringBuilder rightSb = new StringBuilder();
         StringBuilder errorSb = new StringBuilder();
         for (int i = 0; i < SAMPLE_NUM; i++) {
             Task task = tasks[i];
             byte[] res = resBuffer[i];
             if (verificationMap[i]) {
-                rightSb.append(task).append(" ").append(DatatypeConverter.printHexBinary(res)).append(System.lineSeparator());
+                rightSb.append(task).append(" ").append(Task.getSha256String(res)).append(System.lineSeparator());
             } else {
-                errorSb.append(task).append(" ").append(DatatypeConverter.printHexBinary(res)).append(System.lineSeparator());
+                errorSb.append(task).append(" ").append(Task.getSha256String(res)).append(System.lineSeparator());
             }
         }
 
@@ -136,7 +134,7 @@ public class TaskResultCollector {
         FileUtil.write(path, content);
     }
 
-    @NotNull
+    
     private boolean[] sampleVerification() {
         boolean[] verificationMap = new boolean[SAMPLE_NUM];
         if (bufferId == 0) {
@@ -149,8 +147,8 @@ public class TaskResultCollector {
             Task task = tasks[i];
             byte[] res2 = Task.execute(md, sha256Buf.array(), task);
             sha256Buf.clear();
-            String res1Str = DatatypeConverter.printHexBinary(res1);
-            String res2Str = DatatypeConverter.printHexBinary(res2);
+            String res1Str = Task.getSha256String(res1);
+            String res2Str = Task.getSha256String(res2);
             verificationMap[i] = res1Str.equals(res2Str);
 //            logger.debug(task.toString() + " " + res1Str + " " + verificationMap.get(taskPair));
         }

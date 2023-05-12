@@ -1,6 +1,5 @@
 package org.bitkernel;
 
-import com.sun.istack.internal.NotNull;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -24,10 +23,11 @@ public class Task {
     @Getter
     @Setter
     private int y;
+    private static final String HEX = "0123456789abcdef";
 
-    @NotNull
-    public static byte[] execute(@NotNull MessageDigest md, @NotNull byte[] buffer,
-                                 @NotNull Task task) {
+    
+    public static byte[] execute( MessageDigest md,  byte[] buffer,
+                                  Task task) {
         return Task.executeTask(md, buffer, task.x, task.y);
     }
 
@@ -58,9 +58,9 @@ public class Task {
         return md;
     }
 
-    @NotNull
-    public static byte[] executeTask(@NotNull MessageDigest md,
-                                     @NotNull byte[] buffer,
+    
+    public static byte[] executeTask( MessageDigest md,
+                                      byte[] buffer,
                                      int x, int y) {
         long pow = myPow(x, y);
         for (int j = 0; j < 8; j++) {
@@ -81,6 +81,15 @@ public class Task {
             y = y >> 1;
         }
         return ans;
+    }
+
+    public static String getSha256String(byte[] bytes) {
+        StringBuilder sb = new StringBuilder();
+        for (byte b : bytes) {
+            sb.append(HEX.charAt((b >> 4) & 0x0f));
+            sb.append(HEX.charAt(b & 0x0f));
+        }
+        return sb.toString();
     }
 
     public static void main(String[] args) {

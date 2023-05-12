@@ -1,6 +1,5 @@
 package org.bitkernel;
 
-import com.sun.istack.internal.NotNull;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
@@ -63,8 +62,8 @@ public class TaskGenerator {
         taskGenerator.start();
     }
 
-    public TaskGenerator(@NotNull String monitorIp,
-                         @NotNull String executorIp, long targetTps) {
+    public TaskGenerator( String monitorIp,
+                          String executorIp, long targetTps) {
         logger.debug("Initialize the task generator");
         this.monitorIp = monitorIp;
         this.executorIp = executorIp;

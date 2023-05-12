@@ -1,13 +1,12 @@
 package org.bitkernel;
 
-import com.sun.istack.internal.NotNull;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.*;
 
 @Slf4j
 public class FileUtil {
-    public static void deleteFile(@NotNull String filePath) {
+    public static void deleteFile(String filePath) {
         if (!exist(filePath)) {
             logger.error("File [{}] not exist", filePath);
             return;
@@ -27,7 +26,7 @@ public class FileUtil {
      * @param dir directory path
      * @return is the creation successful
      */
-    public static boolean createFolder(@NotNull String dir) {
+    public static boolean createFolder(String dir) {
         File file = new File(dir);
         if (!file.exists()) {
             if (!file.mkdirs()) {
@@ -45,12 +44,12 @@ public class FileUtil {
      * @param filePath file path
      * @return exist or not
      */
-    public static boolean exist(@NotNull String filePath) {
+    public static boolean exist(String filePath) {
         File file = new File(filePath);
         return file.exists();
     }
 
-    public static void write(@NotNull String filePath, @NotNull String content) {
+    public static void write(String filePath, String content) {
         try {
             FileWriter writer = new FileWriter(filePath);
             writer.write(content);
@@ -60,7 +59,7 @@ public class FileUtil {
         }
     }
 
-    public static void appendToFile(@NotNull String filePath, @NotNull String content) {
+    public static void appendToFile(String filePath, String content) {
         try {
             File file = new File(filePath);
             BufferedWriter writer;
@@ -75,6 +74,5 @@ public class FileUtil {
         } catch (IOException e) {
             logger.error("{}:{}", e.getMessage(), filePath);
         }
-
     }
 }

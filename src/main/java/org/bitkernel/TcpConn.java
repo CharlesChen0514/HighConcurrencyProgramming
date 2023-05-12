@@ -1,6 +1,5 @@
 package org.bitkernel;
 
-import com.sun.istack.internal.NotNull;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
@@ -20,7 +19,7 @@ public class TcpConn {
     private BufferedInputStream bis;
     private BufferedOutputStream bos;
 
-    public TcpConn(@NotNull Socket socket) {
+    public TcpConn( Socket socket) {
         this.socket = socket;
         try {
             dout = new DataOutputStream(socket.getOutputStream());
@@ -32,11 +31,11 @@ public class TcpConn {
         }
     }
 
-    public TcpConn(@NotNull String ip, int port) throws IOException {
+    public TcpConn( String ip, int port) throws IOException {
         this(new Socket(ip, port));
     }
 
-    public synchronized void readFully(@NotNull ByteBuffer readBuffer) {
+    public synchronized void readFully( ByteBuffer readBuffer) {
         try {
             din.readFully(readBuffer.array());
         } catch (IOException e) {
@@ -44,7 +43,7 @@ public class TcpConn {
         }
     }
 
-//    public synchronized void read(@NotNull ByteBuffer readBuffer) {
+//    public synchronized void read( ByteBuffer readBuffer) {
 //        int curLen = 0;
 //        int capacity = readBuffer.limit();
 //        while (curLen < capacity) {
@@ -56,7 +55,7 @@ public class TcpConn {
 //        }
 //    }
 //
-//    public synchronized void write(@NotNull ByteBuffer writeBuffer) {
+//    public synchronized void write( ByteBuffer writeBuffer) {
 //        try {
 //            dout.write(writeBuffer.array());
 //            dout.flush();
@@ -65,7 +64,7 @@ public class TcpConn {
 //        }
 //    }
 
-    public synchronized void read(@NotNull ByteBuffer readBuffer) {
+    public synchronized void read( ByteBuffer readBuffer) {
         int curLen = 0;
         int capacity = readBuffer.limit();
         while (curLen < capacity) {
@@ -77,7 +76,7 @@ public class TcpConn {
         }
     }
 
-    public synchronized void write(@NotNull ByteBuffer writeBuffer) {
+    public synchronized void write( ByteBuffer writeBuffer) {
         try {
             bos.write(writeBuffer.array());
 //            dout.flush();

@@ -1,6 +1,5 @@
 package org.bitkernel;
 
-import com.sun.istack.internal.NotNull;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
@@ -63,7 +62,7 @@ public class Monitor {
         }
     }
 
-    private void recordMsg(@NotNull String pktString) {
+    private void recordMsg( String pktString) {
         String[] split = pktString.split("@");
         int code = Integer.parseInt(split[0]);
         switch (code) {
@@ -81,7 +80,7 @@ public class Monitor {
         }
     }
 
-    private double tps(long taskNum, @NotNull String time) {
+    private double tps(long taskNum,  String time) {
         int t = Integer.parseInt(time);
         if (t == 0) {
             return  0D;
@@ -93,8 +92,8 @@ public class Monitor {
         return (taskNum * 1.0) / 60;
     }
 
-    private void recordGeneratorMsg(@NotNull String time,
-                                    @NotNull String msg) {
+    private void recordGeneratorMsg( String time,
+                                     String msg) {
         long newTaskNum = Long.parseLong(msg);
 
         StringBuilder sb = new StringBuilder();
@@ -113,8 +112,8 @@ public class Monitor {
         FileUtil.appendToFile(path, sb.toString());
     }
 
-    private void recordExecutorMsg(@NotNull String time,
-                                   @NotNull String msg) {
+    private void recordExecutorMsg( String time,
+                                    String msg) {
         String[] split = msg.split(" ");
         long newTaskNum = Long.parseLong(split[0]);
         int waitingQueueTaskNum = Integer.parseInt(split[1]);
@@ -136,8 +135,8 @@ public class Monitor {
         FileUtil.appendToFile(path, sb.toString());
     }
 
-    private void recordCollectorMsg(@NotNull String time,
-                                    @NotNull String msg) {
+    private void recordCollectorMsg( String time,
+                                     String msg) {
         String[] split = msg.split(" ");
         long newTaskNum = Long.parseLong(split[0]);
         int correct = Integer.parseInt(split[1]);

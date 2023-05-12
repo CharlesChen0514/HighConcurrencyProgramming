@@ -1,6 +1,5 @@
 package org.bitkernel;
 
-import com.sun.istack.internal.NotNull;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
@@ -50,8 +49,8 @@ public class TaskExecutor {
         taskExecutor.start();
     }
 
-    private TaskExecutor(@NotNull String monitorIp,
-                         @NotNull String collectorIp) {
+    private TaskExecutor( String monitorIp,
+                          String collectorIp) {
         logger.debug("Initialize the task executor");
         this.monitorIp = monitorIp;
         this.collectorIp = collectorIp;

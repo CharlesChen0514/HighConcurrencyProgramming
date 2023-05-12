@@ -1,7 +1,5 @@
 package org.bitkernel;
 
-import com.sun.istack.internal.NotNull;
-import com.sun.istack.internal.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
@@ -44,8 +42,8 @@ public class Udp {
         }
     }
 
-    public void send(@NotNull String ip, int port,
-                     @NotNull String dataStr) {
+    public void send(String ip, int port,
+                     String dataStr) {
         byte[] bytes = dataStr.getBytes();
         InetSocketAddress socAddr = new InetSocketAddress(ip, port);
         DatagramPacket packet = new DatagramPacket(bytes, 0, bytes.length, socAddr);
@@ -59,7 +57,6 @@ public class Udp {
         }
     }
 
-    @Nullable
     public DatagramPacket receivePkt() {
         try {
             byte[] buff = new byte[BUFF_LEN];
@@ -72,7 +69,7 @@ public class Udp {
         return null;
     }
 
-    @NotNull
+    
     public String receiveString() {
         DatagramPacket packet = receivePkt();
         if (packet == null) {
@@ -81,8 +78,8 @@ public class Udp {
         return pktToString(packet);
     }
 
-    @NotNull
-    public String pktToString(@NotNull DatagramPacket pkt) {
+    
+    public String pktToString( DatagramPacket pkt) {
         byte[] bytes = pkt.getData();
         return new String(bytes, 0, pkt.getLength());
     }
